@@ -32,15 +32,14 @@ const DEMO_TASKS: Task[] = [
 
 export function TaskList({ tasks = DEMO_TASKS }: TaskListProps): React.ReactElement {
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1}>
+    <Box flexDirection="column" borderStyle="single" borderColor="blue" paddingX={1}>
       <Text bold color="blue">
         Tasks
       </Text>
       {tasks.map((task) => (
         <Box key={task.id}>
           <Text>{getStatusIcon(task.status)} </Text>
-          <Text bold>{task.id}</Text>
-          <Text>: {task.title}</Text>
+          <Text bold>{task.title}</Text>
           {task.assignedAgentId && <Text color="gray"> [{task.assignedAgentId}]</Text>}
         </Box>
       ))}

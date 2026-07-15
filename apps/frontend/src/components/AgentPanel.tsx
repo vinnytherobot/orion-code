@@ -24,7 +24,7 @@ const DEMO_AGENTS: Agent[] = [
 
 export function AgentPanel({ agents = DEMO_AGENTS }: AgentPanelProps): React.ReactElement {
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1}>
+    <Box flexDirection="column" borderStyle="single" borderColor="green" paddingX={1}>
       <Text bold color="green">
         Agents
       </Text>
@@ -43,13 +43,13 @@ export function AgentPanel({ agents = DEMO_AGENTS }: AgentPanelProps): React.Rea
 function getStatusColor(status: AgentStatusValue): string {
   switch (status) {
     case "running":
-      return "green";
+      return "yellow";
     case "waiting":
       return "yellow";
     case "failed":
       return "red";
     case "completed":
-      return "blue";
+      return "green";
     case "idle":
     default:
       return "gray";
