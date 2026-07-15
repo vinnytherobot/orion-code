@@ -5,12 +5,11 @@ import { TaskList } from "./components/TaskList.js";
 import { AgentPanel } from "./components/AgentPanel.js";
 
 interface AppProps {
-  status?: string;
-  currentAgent?: string;
-  progress?: number;
+  model?: string;
+  agentCount?: number;
 }
 
-export function App({ status = "idle", currentAgent, progress = 0 }: AppProps): React.ReactElement {
+export function App({ model = "gpt-4", agentCount = 0 }: AppProps): React.ReactElement {
   return (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
@@ -19,7 +18,7 @@ export function App({ status = "idle", currentAgent, progress = 0 }: AppProps): 
         </Text>
       </Box>
 
-      <StatusBar status={status} currentAgent={currentAgent} progress={progress} />
+      <StatusBar model={model} agentCount={agentCount} />
 
       <Box marginTop={1}>
         <AgentPanel />

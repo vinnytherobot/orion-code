@@ -2,52 +2,34 @@ import React from "react";
 import { Box, Text } from "ink";
 
 interface StatusBarProps {
-  status: string;
-  currentAgent?: string;
-  progress: number;
+  model?: string;
+  agentCount?: number;
 }
 
-export function StatusBar({ status, currentAgent, progress }: StatusBarProps): React.ReactElement {
-  const statusColor = getStatusColor(status);
-  const progressBar = renderProgress(progress);
-
+export function StatusBar({ model = "gpt-4", agentCount = 0 }: StatusBarProps): React.ReactElement {
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={statusColor} paddingX={1}>
+    <Box
+      borderStyle="round"
+      borderColor="gray"
+      paddingX={1}
+      justifyContent="space-between"
+    >
       <Box>
-        <Text bold>Status: </Text>
-        <Text color={statusColor}>{status.toUpperCase()}</Text>
-        {currentAgent && (
-          <>
-            <Text> │ Agent: </Text>
-            <Text color="yellow">{currentAgent}</Text>
-          </>
-        )}
+        <Text color="gray">
+          / for shortcuts · + for agents
+        </Text>
       </Box>
-      <Box marginTop={1}>
-        <Text>Progress: {progressBar} </Text>
-        <Text color="gray">{Math.round(progress * 100)}%</Text>
+      <Box>
+        <Text color="yellow">
+          {model}
+        </Text>
+        <Text color="gray">
+          {" │ "}
+        </Text>
+        <Text color="cyan">
+          {agentCount} agents
+        </Text>
       </Box>
     </Box>
   );
-}
-
-function getStatusColor(status: string): string {
-  switch (status) {
-    case "running":
-      return "green";
-    case "waiting":
-      return "yellow";
-    case "failed":
-      return "red";
-    case "completed":
-      return "blue";
-    default:
-      return "gray";
-  }
-}
-
-function renderProgress(progress: number): string {
-  const filled = Math.round(progress * 20);
-  const empty = 20 - filled;
-  return `[${"█".repeat(filled)}${"░".repeat(empty)}]`;
 }
