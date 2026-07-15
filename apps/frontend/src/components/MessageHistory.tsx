@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
-import type { Message } from "../types";
+import type { Message } from "../types/index.js";
 
 interface MessageHistoryProps {
   messages?: Message[];
