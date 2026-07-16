@@ -90,6 +90,7 @@ class ApiClient {
   private baseUrl: string;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
+  private userId: string | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
@@ -101,16 +102,18 @@ class ApiClient {
     if (stored) {
       this.accessToken = stored.accessToken;
       this.refreshToken = stored.refreshToken;
+      this.userId = stored.userId ?? null;
     }
   }
 
   setTokens(access: string, refresh: string, userId?: string) {
     this.accessToken = access;
     this.refreshToken = refresh;
+    this.userId = userId || 'unknown';
     saveTokens({
       accessToken: access,
       refreshToken: refresh,
-      userId: userId || 'unknown',
+      userId: this.userId,
       savedAt: new Date().toISOString(),
     });
   }
@@ -118,6 +121,7 @@ class ApiClient {
   clearTokens() {
     this.accessToken = null;
     this.refreshToken = null;
+    this.userId = null;
     clearTokens();
   }
 
@@ -181,7 +185,7 @@ class ApiClient {
       saveTokens({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
-        userId: 'unknown',
+        userId: this.userId || 'unknown',
         savedAt: new Date().toISOString(),
       });
       return true;
