@@ -15,7 +15,7 @@ export interface Command {
   name: string;
   description: string;
   usage?: string;
-  handler: (args: string[]) => Promise<void> | void;
+  handler: (args: string[]) => Promise<string | void> | string | void;
   aliases?: string[];
   hidden?: boolean;
 }

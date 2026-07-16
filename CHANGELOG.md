@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Initial project setup
-- Multi-agent CLI architecture
+- Multi-agent TUI architecture
 - DDD (Domain-Driven Design) structure
 - Interactive TUI with Ink/React
 - Welcome screen with ASCII art
@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@orion/domain` - Domain entities (Agent, Task, Project, Value Objects)
 - `@orion/application` - Use cases (AnalyzeProject, Plan, Implement)
 - `@orion/infrastructure` - Implementations (LLM Providers, State, Cache)
-- `@orion/backend` - CLI application with Commander.js
+- `@orion/backend` - Backend application with Commander.js
 - `@orion/frontend` - TUI interface with Ink/React
 
 ## [0.1.0] - 2026-07-15
@@ -35,5 +35,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release
 - Project scaffolding
-- Basic CLI structure
+- Basic TUI structure
 - DDD architecture foundation

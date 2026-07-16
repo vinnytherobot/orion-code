@@ -6,7 +6,7 @@ interface StatusBarProps {
   agentCount?: number;
 }
 
-export function StatusBar({ model = "gpt-4", agentCount = 0 }: StatusBarProps): React.ReactElement {
+export function StatusBar({ model = "not-set", agentCount = 0 }: StatusBarProps): React.ReactElement {
   return (
     <Box
       borderStyle="round"
@@ -16,7 +16,7 @@ export function StatusBar({ model = "gpt-4", agentCount = 0 }: StatusBarProps): 
     >
       <Box>
         <Text color="gray">
-          / for shortcuts · + for agents
+          / for shortcuts ·
         </Text>
       </Box>
       <Box>

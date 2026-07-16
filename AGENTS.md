@@ -1,10 +1,10 @@
-# Orion CLI - Agents
+# Orion TUI - Agents
 
 > Complete guide to the specialized agents in the multi-agent system.
 
 ## Philosophy
 
-The CLI is not an agent. It is an **orchestrator**. Each agent is a specialist in only one responsibility. This brings the workflow closer to a real engineering team.
+The TUI is not an agent. It is an **orchestrator**. Each agent is a specialist in only one responsibility. This brings the workflow closer to a real engineering team.
 
 ---
 

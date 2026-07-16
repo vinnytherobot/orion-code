@@ -1,10 +1,10 @@
-# Orion CLI - Monorepo Setup Implementation Plan
+# Orion TUI - Monorepo Setup Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use compose:subagent (recommended) or compose:execute to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Scaffold the complete monorepo structure with all packages and apps, configured and ready for development.
 
-**Architecture:** Monorepo with npm workspaces + Turborepo. DDD layers as separate packages (`domain`, `application`, `infrastructure`, `shared`). Two apps (`backend` CLI, `frontend` TUI). Each package is independent with unidirectional dependencies.
+**Architecture:** Monorepo with npm workspaces + Turborepo. DDD layers as separate packages (`domain`, `application`, `infrastructure`, `shared`). Two apps (`backend`, `frontend` TUI). Each package is independent with unidirectional dependencies.
 
 **Tech Stack:** TypeScript 5.4+, ESM, Commander.js, Vitest, ESLint, Prettier, Turborepo
 
@@ -39,10 +39,10 @@
 
 ```json
 {
-  "name": "orion-cli",
+  "name": "orion-tui",
   "version": "0.1.0",
   "private": true,
-  "description": "Multi-Agent CLI - Orquestrador Inteligente de Agentes de IA",
+  "description": "Multi-Agent TUI - Orquestrador Inteligente de Agentes de IA",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -223,7 +223,7 @@ git commit -chore: configure root monorepo with turbo, typescript, eslint, prett
 {
   "name": "@orion/shared",
   "version": "0.1.0",
-  "description": "Utilitários compartilhados do Orion CLI",
+  "description": "Utilitários compartilhados do Orion TUI",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -558,7 +558,7 @@ git commit -m "feat: create @orion/shared package with Result, errors, logger, c
 {
   "name": "@orion/domain",
   "version": "0.1.0",
-  "description": "Camada de domínio do Orion CLI",
+  "description": "Camada de domínio do Orion TUI",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -1112,7 +1112,7 @@ git commit -m "feat: create @orion/domain package with entities, value objects, 
 {
   "name": "@orion/application",
   "version": "0.1.0",
-  "description": "Casos de uso do Orion CLI",
+  "description": "Casos de uso do Orion TUI",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -1425,7 +1425,7 @@ git commit -m "feat: create @orion/application package with use cases and ports"
 {
   "name": "@orion/infrastructure",
   "version": "0.1.0",
-  "description": "Implementações de infraestrutura do Orion CLI",
+  "description": "Implementações de infraestrutura do Orion TUI",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -1752,7 +1752,7 @@ git commit -m "feat: create @orion/infrastructure package with providers, state,
 
 ---
 
-### Task 6: Backend App (CLI)
+### Task 6: Backend App
 
 **Covers:** S3, S5
 
@@ -1770,7 +1770,7 @@ git commit -m "feat: create @orion/infrastructure package with providers, state,
 
 **Interfaces:**
 - Consumes: All packages (`@orion/shared`, `@orion/domain`, `@orion/application`, `@orion/infrastructure`)
-- Produces: CLI binary `orion`
+- Produces: Backend binary `orion`
 
 - [ ] **Step 1: Create package.json**
 
@@ -1778,7 +1778,7 @@ git commit -m "feat: create @orion/infrastructure package with providers, state,
 {
   "name": "@orion/backend",
   "version": "0.1.0",
-  "description": "CLI principal do Orion",
+  "description": "Backend principal do Orion",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -1829,7 +1829,7 @@ git commit -m "feat: create @orion/infrastructure package with providers, state,
 }
 ```
 
-- [ ] **Step 3: Create CLI entry point**
+- [ ] **Step 3: Create TUI entry point**
 
 ```typescript
 // apps/backend/src/cli.ts
@@ -1849,7 +1849,7 @@ const program = new Command();
 
 program
   .name('orion')
-  .description('Multi-Agent CLI - Orquestrador Inteligente de Agentes de IA')
+  .description('Multi-Agent TUI - Orquestrador Inteligente de Agentes de IA')
   .version('0.1.0');
 
 program.addCommand(initCommand);
@@ -2036,7 +2036,7 @@ export { releaseCommand } from './commands/release.js';
 
 ```bash
 git add apps/backend/
-git commit -m "feat: create @orion/backend CLI with commander.js commands"
+git commit -m "feat: create @orion/backend with commander.js commands"
 ```
 
 ---
@@ -2248,7 +2248,7 @@ export const App: React.FC<AppProps> = ({ request }) => {
         ════════════════════════════════════════
       </Text>
       <Text bold color="cyan">
-        Orion CLI - Multi-Agent Orchestrator
+        Orion TUI - Multi-Agent Orchestrator
       </Text>
       <Text bold color="cyan">
         ════════════════════════════════════════
@@ -2345,7 +2345,7 @@ npm run test
 
 Expected: All tests pass
 
-- [ ] **Step 6: Test CLI binary**
+- [ ] **Step 6: Test TUI binary**
 
 ```bash
 npx orion --help

@@ -1,13 +1,13 @@
-# Multi-Agent CLI (Orion-cli)
-## Architecture for an AI Agent Orchestration CLI
+# Multi-Agent TUI (Orion-tui)
+## Architecture for an AI Agent Orchestration TUI
 
-> **Objective:** Develop a CLI capable of acting as an intelligent orchestrator of multiple specialized agents, allowing them to collaborate on the same software project in a parallel, organized, and scalable way. The interface must be friendly and easy to use, with clear and objective commands. The system must be able to adapt to different technologies and frameworks, allowing the addition of new agents and tools in a simple and modular way. Additionally, the CLI must have an interface similar to MiMo Code, Claude Code, OpenClaude, opencode, agy, etc.
+> **Objective:** Develop a TUI capable of acting as an intelligent orchestrator of multiple specialized agents, allowing them to collaborate on the same software project in a parallel, organized, and scalable way. The interface must be friendly and easy to use, with clear and objective commands. The system must be able to adapt to different technologies and frameworks, allowing the addition of new agents and tools in a simple and modular way. Additionally, the TUI must have an interface similar to MiMo Code, Claude Code, OpenClaude, opencode, agy, etc.
 
 ---
 
 # Overview
 
-The proposal is to create a CLI that functions as a **virtual Tech Lead**, responsible for:
+The proposal is to create a TUI that functions as a **virtual Tech Lead**, responsible for:
 
 - understanding the user's request;
 - analyzing the existing project;
@@ -21,7 +21,7 @@ The proposal is to create a CLI that functions as a **virtual Tech Lead**, respo
 - running tests;
 - creating commits and Pull Requests.
 
-The user interacts only with the CLI.
+The user interacts only with the TUI.
 
 Example:
 
@@ -35,7 +35,7 @@ All complexity happens internally.
 
 # Objectives
 
-The CLI must be able to:
+The TUI must be able to:
 
 - analyze any existing project;
 - automatically understand its architecture;
@@ -53,7 +53,7 @@ The CLI must be able to:
 
 # Philosophy
 
-The CLI will not be an agent.
+The TUI will not be an agent.
 
 It will be an **orchestrator**.
 
@@ -69,7 +69,7 @@ This brings the workflow closer to a real engineering team.
                 User
                     │
                     ▼
-            Multi-Agent CLI
+            Multi-Agent TUI
                     │
                     ▼
               Orchestrator
@@ -102,7 +102,7 @@ Pull Request
 
 # Components
 
-## CLI
+## TUI
 
 Responsible only for receiving commands.
 
@@ -518,7 +518,7 @@ Reviewer
 
 # Providers
 
-The CLI will not depend on a single model.
+The TUI will not depend on a single model.
 
 It must support multiple providers.
 
@@ -551,7 +551,7 @@ Example:
 
 # Plugin System
 
-The CLI will be extensible.
+The TUI will be extensible.
 
 ```
 plugins/
@@ -709,7 +709,7 @@ Cancelled
 
 # Observability
 
-The CLI must have logs.
+The TUI must have logs.
 
 Example:
 
@@ -791,7 +791,7 @@ Create PR
 
 # Pull Request
 
-The CLI must automatically generate:
+The TUI must automatically generate:
 
 - summary
 - changelog
@@ -834,7 +834,7 @@ architecture: "ddd"
 ```
 src/
 
-cli/
+tui/
 
 orchestrator/
 
@@ -865,7 +865,7 @@ config/
 
 ## Phase 1
 
-- CLI
+- TUI
 - basic commands
 - project reading
 - planner
@@ -915,7 +915,7 @@ config/
 
 # Long-Term Vision
 
-The CLI must evolve from a simple prompt executor to a complete AI-assisted development platform.
+The TUI must evolve from a simple prompt executor to a complete AI-assisted development platform.
 
 In the future, it may:
 
@@ -927,4 +927,4 @@ In the future, it may:
 - track quality metrics, test coverage, and performance;
 - act as a virtual "Engineering Manager," assisting in planning, execution, and review of the development cycle.
 
-The ultimate goal is for the developer to stop managing repetitive tasks and focus on product and architecture decisions, while the CLI coordinates technical execution in a predictable, auditable, and scalable way.
+The ultimate goal is for the developer to stop managing repetitive tasks and focus on product and architecture decisions, while the TUI coordinates technical execution in a predictable, auditable, and scalable way.

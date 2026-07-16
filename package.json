@@ -10,11 +10,19 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:frontend": "npm run dev --workspace=@orion/frontend",
+    "dev:landing": "npm run dev --workspace=@orion/landing",
+    "dev:backend": "npm run dev --workspace=@orion/backend",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "clean": "turbo run clean",
     "typecheck": "turbo run typecheck",
-    "format": "prettier --write \"**/*.{ts,tsx,js,cjs,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,cjs,json,md}\"",
+    "db:migrate": "npm run db:migrate --workspace=@orion/infrastructure",
+    "db:generate": "npm run db:generate --workspace=@orion/infrastructure",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose up -d --build"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",

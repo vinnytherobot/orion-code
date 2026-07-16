@@ -33,7 +33,7 @@ If applicable, add screenshots to help explain your problem.
 - OS: [e.g., Windows 11, macOS 14, Ubuntu 22.04]
 - Node.js Version: [e.g., 18.17.0]
 - npm Version: [e.g., 10.0.0]
-- Orion CLI Version: [e.g., 0.1.0]
+- Orion TUI Version: [e.g., 0.1.0]
 
 ## Additional Context
 

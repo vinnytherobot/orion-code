@@ -1,10 +1,10 @@
-# Orion CLI - Interactive TUI Implementation Plan
+# Orion TUI - Interactive TUI Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use compose:subagent (recommended) or compose:execute to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the Commander.js CLI with an interactive Ink-based TUI featuring a welcome screen, REPL prompt, slash commands, and agent status panels.
+**Goal:** Replace the Commander.js backend with an interactive Ink-based **TUI** featuring a welcome screen, REPL prompt, slash commands, and agent status panels.
 
-**Architecture:** Ink 4 (React for CLI) with component-based architecture. Main App component manages state, WelcomeScreen for startup, PromptInput for REPL, CommandPalette for `/` commands, AgentPanel and TaskList for status.
+**Architecture:** Ink 4 (React for TUI) with component-based architecture. Main App component manages state, WelcomeScreen for startup, PromptInput for REPL, CommandPalette for `/` commands, AgentPanel and TaskList for status.
 
 **Tech Stack:** Ink 4, React 18, chalk, @inkjs/text-input
 
@@ -147,7 +147,7 @@ export const ORION_LOGO = `
       ╱     ╲
 `;
 
-export const ORION_NAME = 'Orion CLI';
+export const ORION_NAME = 'Orion TUI';
 ```
 
 - [ ] **Step 3: Create utils/commands.ts**
@@ -201,7 +201,7 @@ export const COMMANDS: Command[] = [
   },
   {
     name: '/exit',
-    description: 'Exit CLI',
+    description: 'Exit TUI',
     handler: async () => 'EXIT',
   },
 ];
@@ -784,7 +784,7 @@ npm run typecheck
 npm run build
 ```
 
-- [ ] **Step 4: Test CLI**
+- [ ] **Step 4: Test TUI**
 
 ```bash
 npx tsx apps/frontend/src/index.tsx

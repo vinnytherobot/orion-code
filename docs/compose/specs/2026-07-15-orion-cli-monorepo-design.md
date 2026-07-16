@@ -1,8 +1,8 @@
-# Orion CLI - Design Specification
+# Orion TUI - Design Specification
 
 ## [S1] Problem
 
-Build a multi-agent CLI that acts as a virtual Tech Lead, orchestrating specialized agents for software development. The CLI must be modular, extensible, and follow DDD and Clean Architecture principles.
+Build a multi-agent TUI that acts as a virtual Tech Lead, orchestrating specialized agents for software development. The TUI must be modular, extensible, and follow DDD and Clean Architecture principles.
 
 ## [S2] Solution Overview
 
@@ -15,9 +15,9 @@ Monorepo with clear separation between applications (`apps/`) and shared package
 ```
 orion-cli/
 ├── apps/
-│   ├── backend/                  # Main CLI + API server
+│   ├── backend/                  # Main Backend + API server
 │   │   ├── src/
-│   │   │   ├── cli.ts           # Entry point CLI
+│   │   │   ├── cli.ts           # Entry point TUI
 │   │   │   ├── server.ts        # Entry point API
 │   │   │   └── commands/        # Commander.js commands
 │   │   ├── package.json
@@ -168,7 +168,7 @@ apps (depends on application + infrastructure)
 ## [S5] Data Flow
 
 ```
-User → CLI Command → Application Use Case → Domain Logic → Infrastructure
+User → TUI Command → Application Use Case → Domain Logic → Infrastructure
                               ↓
                         Orchestrator
                               ↓
@@ -207,8 +207,8 @@ User → CLI Command → Application Use Case → Domain Logic → Infrastructur
 | Runtime | Node.js 18+ |
 | Module System | ESM |
 | Monorepo | npm workspaces + Turborepo |
-| CLI Framework | Commander.js |
-| TUI | Ink (React for CLI) |
+| CLI Framework | Commander.js (backend) |
+| TUI | Ink (React for TUI) |
 | Testing | Vitest |
 | Linting | ESLint + Prettier |
 | Build | tsc |

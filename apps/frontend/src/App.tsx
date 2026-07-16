@@ -4,7 +4,7 @@ import { WelcomeScreen } from "./components/WelcomeScreen.js";
 import { MessageHistory } from "./components/MessageHistory.js";
 import { PromptInput } from "./components/PromptInput.js";
 import { StatusBar } from "./components/StatusBar.js";
-import { findCommand, parseCommand } from "./utils/commands.js";
+import { executeCommand } from "./utils/commands.js";
 import type { Message, Agent, Task } from "./types/index.js";
 
 interface AppProps {
@@ -12,9 +12,8 @@ interface AppProps {
   agentCount?: number;
 }
 
-export function App({ model = "gpt-4", agentCount = 0 }: AppProps): React.ReactElement {
+export function App({ model = "not-set", agentCount = 0 }: AppProps): React.ReactElement {
   const { exit } = useApp();
-  const [showWelcome, setShowWelcome] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [agents] = useState<Agent[]>([]);
   const [_tasks] = useState<Task[]>([]);
@@ -36,42 +35,31 @@ export function App({ model = "gpt-4", agentCount = 0 }: AppProps): React.ReactE
   );
 
   const handleSubmit = useCallback(
-    (input: string) => {
+    async (input: string) => {
       const trimmed = input.trim();
       if (!trimmed) return;
 
-      if (showWelcome) {
-        setShowWelcome(false);
-      }
-
-      // Command handling
+      // Handle commands starting with /
       if (trimmed.startsWith("/")) {
-        const { command, args } = parseCommand(trimmed);
+        const result = await executeCommand(trimmed);
 
-        // /clear — wipe message history
-        if (command === "clear") {
+        if (result === "__CLEAR__") {
           setMessages([]);
           return;
         }
 
-        // /exit — exit the app
-        if (command === "exit" || command === "quit" || command === "q") {
+        if (result === "__EXIT__") {
           exit();
           return;
         }
 
-        // Look up and execute other commands
-        const cmd = findCommand(command);
-        if (cmd) {
-          cmd.handler(args);
-          return;
+        if (result) {
+          addMessage("system", result);
         }
-
-        addMessage("system", `Unknown command: /${command}. Type /help for available commands.`);
         return;
       }
 
-      // Natural language — treat as user message, send to orchestrator placeholder
+      // Natural language — treat as user message
       addMessage("user", trimmed);
 
       // Placeholder: simulate orchestrator response
@@ -82,29 +70,16 @@ export function App({ model = "gpt-4", agentCount = 0 }: AppProps): React.ReactE
         );
       }, 300);
     },
-    [showWelcome, addMessage, exit],
+    [addMessage, exit],
   );
 
-  // Welcome screen — shown until first input
-  if (showWelcome) {
-    return (
-      <Box flexDirection="column">
-        <WelcomeScreen model={model} directory={process.cwd()} />
-        <PromptInput onSubmit={handleSubmit} />
-      </Box>
-    );
-  }
-
-  // REPL view — messages + prompt + status bar
+  // Main view — welcome always visible, messages below
   return (
-    <Box flexDirection="column" padding={1}>
-      <MessageHistory messages={messages} />
-      <Box marginTop={1}>
-        <PromptInput onSubmit={handleSubmit} />
-      </Box>
-      <Box marginTop={1}>
-        <StatusBar model={model} agentCount={activeAgentCount || agentCount} />
-      </Box>
+    <Box flexDirection="column">
+      <WelcomeScreen model={model} directory={process.cwd()} />
+      {messages.length > 0 && <MessageHistory messages={messages} />}
+      <PromptInput onSubmit={handleSubmit} />
+      <StatusBar model={model} agentCount={activeAgentCount || agentCount} />
     </Box>
   );
 }

@@ -1,7 +1,7 @@
-# Orion CLI
+# Orion TUI
 
 <p align="center">
-  <strong>Multi-Agent CLI - Intelligent Orchestration of AI Agents</strong>
+  <strong>Multi-Agent TUI - Intelligent Orchestration of AI Agents</strong>
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 
 ## Overview
 
-Orion CLI is a multi-agent orchestration system that acts as a virtual Tech Lead, coordinating specialized AI agents to collaborate on software projects. It provides an interactive terminal interface (TUI) for seamless interaction.
+Orion TUI is a multi-agent orchestration system that acts as a virtual Tech Lead, coordinating specialized AI agents to collaborate on software projects. It provides an interactive **TUI** (Terminal User Interface) for seamless interaction.
 
 ## Features
 
@@ -48,7 +48,7 @@ npm install
 # Build all packages
 npm run build
 
-# Link CLI globally
+# Link TUI globally
 cd apps/backend
 npm link
 ```
@@ -83,7 +83,7 @@ orion implement "Add JWT authentication"
 | `/release` | Create release |
 | `/help` | Show help |
 | `/clear` | Clear screen |
-| `/exit` | Exit CLI |
+| `/exit` | Exit TUI |
 
 ### Example Usage
 
@@ -108,7 +108,7 @@ orion implement "Add JWT authentication"
 ```
 orion-cli/
 ├── apps/
-│   ├── backend/          # CLI application (Commander.js)
+│   ├── backend/          # Backend application
 │   └── frontend/         # TUI interface (Ink/React)
 ├── packages/
 │   ├── shared/           # Shared utilities
@@ -253,12 +253,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [Ink](https://github.com/vadimdemedes/ink) - React for CLI
-- [Commander.js](https://github.com/tj/commander.js) - CLI framework
+- [Ink](https://github.com/vadimdemedes/ink) - React for TUI
+- [Commander.js](https://github.com/tj/commander.js) - CLI framework (backend)
 - [Turborepo](https://turbo.build/) - Monorepo tooling
 
 ---
 
 <p align="center">
-  Made with ❤️ by the Orion CLI Community
+  Made with ❤️ by the Orion TUI Community
 </p>

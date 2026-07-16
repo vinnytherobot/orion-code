@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: orion-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: orion
+      POSTGRES_PASSWORD: orion
+      POSTGRES_DB: orion
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./packages/infrastructure/src/db/seeds/seed.sql:/docker-entrypoint-initdb.d/01-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orion"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orion-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://orion:orion@postgres:5432/orion
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

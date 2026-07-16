@@ -1,6 +1,6 @@
-# Contributing to Orion CLI
+# Contributing to Orion TUI
 
-Thank you for your interest in contributing to Orion CLI! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Orion TUI! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -86,7 +86,7 @@ npm run test
 ```
 orion-cli/
 ├── apps/
-│   ├── backend/          # CLI application
+│   ├── backend/          # Backend application
 │   └── frontend/         # TUI interface
 ├── packages/
 │   ├── shared/           # Shared utilities
@@ -105,7 +105,7 @@ The project follows DDD (Domain-Driven Design) with Clean Architecture:
 - **Domain Layer** - Pure business logic, no dependencies
 - **Application Layer** - Use cases, orchestrates domain
 - **Infrastructure Layer** - Implements interfaces
-- **Presentation Layer** - User interface (CLI/TUI)
+- **Presentation Layer** - User interface (TUI)
 
 ### Package Dependencies
 

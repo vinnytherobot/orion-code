@@ -15,14 +15,22 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@orion/domain": "*",
     "@orion/shared": "*",
-    "@orion/domain": "*"
+    "dotenv": "^16.6.1",
+    "drizzle-orm": "^0.33.0",
+    "postgres": "^3.4.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "drizzle-kit": "^0.24.0",
     "typescript": "^5.4.0"
   }
 }

@@ -1,18 +1,18 @@
-# Orion CLI - Interactive TUI Design Specification
+# Orion TUI - Interactive TUI Design Specification
 
 ## [S1] Problem
 
-The current CLI implementation uses Commander.js with traditional command-line arguments. The user wants an interactive TUI (Terminal User Interface) similar to Claude Code/MiMoCode - with a welcome screen, REPL prompt, ASCII art, tips, status indicators, and keyboard shortcuts.
+The current implementation uses Commander.js with traditional command-line arguments. The user wants an interactive **TUI** (Terminal User Interface) similar to Claude Code/MiMoCode - with a welcome screen, REPL prompt, ASCII art, tips, status indicators, and keyboard shortcuts.
 
 ## [S2] Solution Overview
 
-Replace the Commander.js CLI with an Ink-based (React for CLI) interactive REPL. The main interface is a continuous prompt where users type natural language requests or slash commands. The welcome screen shows ASCII art logo, tips, changelog, model status, and billing info.
+Replace the Commander.js backend with an Ink-based (React for TUI) interactive REPL. The main interface is a continuous prompt where users type natural language requests or slash commands. The welcome screen shows ASCII art logo, tips, changelog, model status, and billing info.
 
 ## [S3] Interface Layout
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Orion CLI v0.1.0                                                       │
+│  Orion TUI v0.1.0                                                       │
 │                                                                         │
 │  ┌───────────────────────────────────────────────────────────────────┐  │
 │  │  Welcome back!                                                    │  │
@@ -28,7 +28,7 @@ Replace the Commander.js CLI with an Ink-based (React for CLI) interactive REPL.
 │  │               - DDD architecture support                          │  │
 │  │                                                                   │  │
 │  │  Sonnet 4 · API Usage Billing                                    │  │
-│  │  ~/web/CLIs/Orion-cli                                             │  │
+│  │  ~/web/CLIs/Orion-tui                                             │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 │                                                                         │
 │  > _                                                                    │
@@ -93,7 +93,7 @@ Replace the Commander.js CLI with an Ink-based (React for CLI) interactive REPL.
 | `/release` | Create release |
 | `/help` | Show help |
 | `/clear` | Clear screen |
-| `/exit` | Exit CLI |
+| `/exit` | Exit TUI |
 
 ## [S6] Interaction Flow
 
@@ -117,7 +117,7 @@ For natural language:
 
 | Component | Technology |
 |-----------|------------|
-| TUI Framework | Ink 4 (React for CLI) |
+| TUI Framework | Ink 4 (React for TUI) |
 | Input | @inkjs/text-input |
 | Styling | chalk |
 | ASCII Art | Custom |
