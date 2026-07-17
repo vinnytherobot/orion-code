@@ -85,12 +85,12 @@ export function CTA() {
             >
               <Button asChild size="lg" className="group shimmer-btn shadow-glow">
                 <a href="#quick-start">
-                  Install Orion TUI
+                  Install Orion Code
                   <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
                 </a>
               </Button>
               <Button asChild size="lg" variant="ghost">
-                <a href="https://github.com/vinnytherobot/orion-cli">
+                <a href="https://github.com/vinnytherobot/orion-code">
                   <Github />
                   Star on GitHub
                 </a>

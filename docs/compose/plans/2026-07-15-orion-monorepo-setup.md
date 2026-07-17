@@ -1,4 +1,4 @@
-# Orion TUI - Monorepo Setup Implementation Plan
+# Orion Code - Monorepo Setup Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use compose:subagent (recommended) or compose:execute to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -223,7 +223,7 @@ git commit -chore: configure root monorepo with turbo, typescript, eslint, prett
 {
   "name": "@orion/shared",
   "version": "0.1.0",
-  "description": "Utilitários compartilhados do Orion TUI",
+  "description": "Utilitários compartilhados do Orion Code",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -558,7 +558,7 @@ git commit -m "feat: create @orion/shared package with Result, errors, logger, c
 {
   "name": "@orion/domain",
   "version": "0.1.0",
-  "description": "Camada de domínio do Orion TUI",
+  "description": "Camada de domínio do Orion Code",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -1112,7 +1112,7 @@ git commit -m "feat: create @orion/domain package with entities, value objects, 
 {
   "name": "@orion/application",
   "version": "0.1.0",
-  "description": "Casos de uso do Orion TUI",
+  "description": "Casos de uso do Orion Code",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -1425,7 +1425,7 @@ git commit -m "feat: create @orion/application package with use cases and ports"
 {
   "name": "@orion/infrastructure",
   "version": "0.1.0",
-  "description": "Implementações de infraestrutura do Orion TUI",
+  "description": "Implementações de infraestrutura do Orion Code",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -2248,7 +2248,7 @@ export const App: React.FC<AppProps> = ({ request }) => {
         ════════════════════════════════════════
       </Text>
       <Text bold color="cyan">
-        Orion TUI - Multi-Agent Orchestrator
+        Orion Code - Multi-Agent Orchestrator
       </Text>
       <Text bold color="cyan">
         ════════════════════════════════════════

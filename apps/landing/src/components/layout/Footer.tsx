@@ -1,7 +1,7 @@
 import { OrionLogo } from '@/components/OrionLogo';
 import { Github, MessageCircle } from 'lucide-react';
 
-const GITHUB_REPO = 'https://github.com/vinnytherobot/orion-cli';
+const GITHUB_REPO = 'https://github.com/vinnytherobot/orion-code';
 const GITHUB_PROFILE = 'https://github.com/vinnytherobot';
 
 const COLUMNS = [
@@ -91,7 +91,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-border pt-8 text-xs text-muted-foreground sm:flex-row sm:items-center">
-          <p>© 2026 Orion TUI. Open source under the MIT License.</p>
+          <p>© 2026 Orion Code. Open source under the MIT License.</p>
           <p>
             Made with care by{' '}
             <a href={GITHUB_PROFILE} className="underline transition-colors hover:text-foreground">

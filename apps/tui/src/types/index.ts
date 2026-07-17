@@ -1,5 +1,5 @@
 /**
- * Core type definitions for Orion CLI TUI
+ * Core type definitions for Orion Code TUI
  */
 
 export interface Message {

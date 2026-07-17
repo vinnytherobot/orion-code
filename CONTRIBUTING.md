@@ -1,6 +1,6 @@
-# Contributing to Orion CLI
+# Contributing to Orion Code
 
-Thank you for your interest in contributing to Orion CLI! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Orion Code! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -48,14 +48,15 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 - Node.js >= 18.0.0
 - npm >= 10.0.0
 - Git
-- PostgreSQL (for database features)
+- PostgreSQL 16 (for database features)
+- Ollama with `llama3` model (for AI orchestration)
 
 ### Setup Steps
 
 ```bash
 # Clone your fork
-git clone https://github.com/vinnytherobot/orion-cli.git
-cd orion-cli
+git clone https://github.com/vinnytherobot/orion-code.git
+cd orion-code
 
 # Install dependencies
 npm install
@@ -98,7 +99,7 @@ npm run dev
 ## Project Structure
 
 ```
-orion-cli/
+orion-code/
 ├── apps/
 │   ├── backend/          # Fastify API server
 │   ├── frontend/         # TUI interface (Ink/React)

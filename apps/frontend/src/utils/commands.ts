@@ -1,5 +1,5 @@
 /**
- * Command definitions for Orion TUI
+ * Command definitions for Orion Code TUI
  */
 
 import { apiClient } from '../api/client.js';
@@ -197,7 +197,7 @@ export const COMMANDS: Command[] = [
   { name: 'plugin', description: 'Manage plugins', handler: async (args: string[]): Promise<string> => `\nPlugin ${args[0] || 'list'}: (not implemented yet)` },
   { name: 'theme', description: 'Switch between themes', handler: async (args: string[]): Promise<string> => `\nTheme set to: ${args[0] || 'dark'}` },
   { name: 'version', description: 'Show Orion version', aliases: ['v'], handler: async (): Promise<string> => { const h = await apiClient.health(); return `\nORION CLI v${h.data?.version || '0.1.0'}\nMulti-Agent Code Orchestration`; }},
-  { name: 'exit', description: 'Exit Orion TUI', aliases: ['quit', 'q'], handler: async (): Promise<string> => '__EXIT__' },
+  { name: 'exit', description: 'Exit Orion Code', aliases: ['quit', 'q'], handler: async (): Promise<string> => '__EXIT__' },
   { name: 'history', description: 'Show command history', handler: async (): Promise<string> => '\nCommand History: (not implemented yet)' },
 ];
 

@@ -1,4 +1,4 @@
-# Orion TUI - Interactive TUI Design Specification
+# Orion Code - Interactive TUI Design Specification
 
 ## [S1] Problem
 
@@ -12,7 +12,7 @@ Replace the Commander.js backend with an Ink-based (React for TUI) interactive R
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Orion TUI v0.1.0                                                       │
+│  Orion Code v0.1.0                                                       │
 │                                                                         │
 │  ┌───────────────────────────────────────────────────────────────────┐  │
 │  │  Welcome back!                                                    │  │

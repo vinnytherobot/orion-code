@@ -1,4 +1,4 @@
-# Orion TUI - Interactive TUI Implementation Plan
+# Orion Code - Interactive TUI Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use compose:subagent (recommended) or compose:execute to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -147,7 +147,7 @@ export const ORION_LOGO = `
       ╱     ╲
 `;
 
-export const ORION_NAME = 'Orion TUI';
+export const ORION_NAME = 'Orion Code';
 ```
 
 - [ ] **Step 3: Create utils/commands.ts**

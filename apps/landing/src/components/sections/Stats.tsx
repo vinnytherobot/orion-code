@@ -74,7 +74,7 @@ export function Stats() {
           <p className="mt-6 text-center text-xs text-muted-foreground">
             Could not load GitHub stats. Visit the{' '}
             <a
-              href="https://github.com/vinnytherobot/orion-cli"
+              href="https://github.com/vinnytherobot/orion-code"
               className="underline hover:text-foreground"
               target="_blank"
               rel="noreferrer"

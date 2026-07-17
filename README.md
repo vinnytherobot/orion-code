@@ -2,7 +2,7 @@
   <img src="logo.svg" alt="Orion Logo" width="120" />
 </p>
 
-<h1 align="center">Orion CLI</h1>
+<h1 align="center">Orion Code</h1>
 
 <p align="center">
   <strong>Multi-Agent Code Orchestration - Intelligent AI Agent Coordination</strong>
@@ -22,7 +22,7 @@
 
 ## Overview
 
-Orion TUI is a multi-agent orchestration system that acts as a virtual Tech Lead, coordinating specialized AI agents to collaborate on software projects. It provides an interactive **TUI** (Terminal User Interface) for seamless interaction, with a REST API backend and a modern landing page.
+Orion Code is a multi-agent orchestration system that acts as a virtual Tech Lead, coordinating specialized AI agents to collaborate on software projects. It provides an interactive **TUI** (Terminal User Interface) for seamless interaction, with a REST API backend and a modern landing page.
 
 ## Features
 
@@ -50,8 +50,8 @@ Orion TUI is a multi-agent orchestration system that acts as a virtual Tech Lead
 
 ```bash
 # Clone the repository
-git clone https://github.com/vinnytherobot/orion-cli.git
-cd orion-cli
+git clone https://github.com/vinnytherobot/orion-code.git
+cd orion-code
 
 # Install dependencies
 npm install
@@ -103,7 +103,7 @@ npm run dev:landing
 ### Monorepo Structure
 
 ```
-orion-cli/
+orion-code/
 ├── apps/
 │   ├── backend/          # Fastify API server
 │   ├── frontend/         # TUI interface (Ink/React)
@@ -219,7 +219,7 @@ apps (depends on application + infrastructure)
 | `/status` | Show API status and active agents |
 | `/api-keys [list\|create\|delete]` | Manage API keys |
 | `/config [key] [value]` | Show or update configuration |
-| `/version` | Show Orion version |
+| `/version` | Show Orion Code version |
 | `/clear` | Clear screen |
 | `/exit` | Exit TUI |
 
@@ -229,8 +229,8 @@ apps (depends on application + infrastructure)
 
 ```bash
 # Clone and install
-git clone https://github.com/vinnytherobot/orion-cli.git
-cd orion-cli
+git clone https://github.com/vinnytherobot/orion-code.git
+cd orion-code
 npm install
 
 # Build
@@ -291,12 +291,12 @@ npm run docker:build
 
 ### Backend
 - **Runtime**: Node.js + TypeScript
-- **Framework**: Fastify
-- **Database**: PostgreSQL + Drizzle ORM
-- **Auth**: JWT with persistent tokens
+- **Framework**: Fastify 5
+- **Database**: PostgreSQL 16 + Drizzle ORM
+- **Auth**: JWT + API Key with persistent tokens
 
 ### Frontend (TUI)
-- **UI Framework**: Ink + React
+- **UI Framework**: Ink 5 + React 18
 - **Language**: TypeScript
 
 ### Landing Page
@@ -311,9 +311,7 @@ npm run docker:build
 - **Containerization**: Docker + docker-compose
 
 ### LLM Providers
-- OpenAI
-- Anthropic
-- Ollama
+- Ollama (local inference, free)
 
 ## Contributing
 
@@ -346,5 +344,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  Made with ❤️ by vinnytherobot and the ORION Community
+  Made with ❤️ by vinnytherobot and the Orion Code Community
 </p>

@@ -18,7 +18,7 @@ export function WelcomeScreen({
     '/help - Show available commands',
     '/init - Create a new Orion project',
     '/implement - Start coding',
-    '/exit - Quit Orion TUI',
+    '/exit - Quit Orion Code',
   ];
 
   const displayTips = tips || defaultTips;

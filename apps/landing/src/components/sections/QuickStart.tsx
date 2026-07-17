@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 const COMMANDS = {
   npm: 'npm install -g @orion/cli',
   pnpm: 'pnpm add -g @orion/cli',
-  brew: 'brew install orion-cli/tap/orion',
+  brew: 'brew install orion-code/tap/orion',
   docker: 'docker run -it --rm orion/cli implement "Add auth"',
 };
 

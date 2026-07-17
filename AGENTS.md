@@ -1,4 +1,4 @@
-# Orion TUI - Agents
+# Orion Code - Agents
 
 > Complete guide to the specialized agents in the multi-agent system.
 
@@ -310,21 +310,24 @@ Pending → Planning → Running → Waiting → Review → Testing → Complete
 
 ## Model Selection
 
-Each agent can use a different model:
+All agents currently use the same model via Ollama (free, local inference):
 
-| Agent | Recommended Model |
-|-------|-------------------|
-| Planner | GPT-5.5 |
-| Backend | Claude |
-| Database | Claude |
-| Frontend | Claude |
-| QA | GPT-5.5 |
-| Documentation | Gemini |
-| Reviewer | GPT-5.5 |
-| DevOps | Claude |
-| Security | Claude |
-| Performance | Claude |
-| Git | Claude |
+| Agent | Default Model |
+|-------|---------------|
+| Planner | llama3 |
+| Architect | llama3 |
+| Backend | llama3 |
+| Database | llama3 |
+| Frontend | llama3 |
+| QA | llama3 |
+| Reviewer | llama3 |
+| DevOps | llama3 |
+| Security | llama3 |
+| Performance | llama3 |
+| Git | llama3 |
+| Documentation | llama3 |
+
+> **Note:** Future versions may support per-agent model configuration via Ollama or external providers (OpenAI, Anthropic). The current MVP uses `llama3` for all agents to keep costs at $0.
 
 ---
 

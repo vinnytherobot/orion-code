@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const GITHUB_REPO = 'vinnytherobot/orion-cli';
+const GITHUB_REPO = 'vinnytherobot/orion-code';
 
 interface GitHubStats {
   stars: number;

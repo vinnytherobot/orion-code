@@ -1,4 +1,4 @@
-# Multi-Agent TUI (Orion-tui)
+# Orion Code
 ## Architecture for an AI Agent Orchestration TUI
 
 > **Objective:** Develop a TUI capable of acting as an intelligent orchestrator of multiple specialized agents, allowing them to collaborate on the same software project in a parallel, organized, and scalable way. The interface must be friendly and easy to use, with clear and objective commands. The system must be able to adapt to different technologies and frameworks, allowing the addition of new agents and tools in a simple and modular way. Additionally, the TUI must have an interface similar to MiMo Code, Claude Code, OpenClaude, opencode, agy, etc.

@@ -1,4 +1,4 @@
-# Orion TUI - Design Specification
+# Orion Code - Design Specification
 
 ## [S1] Problem
 
@@ -13,7 +13,7 @@ Monorepo with clear separation between applications (`apps/`) and shared package
 ### Folder Structure
 
 ```
-orion-cli/
+orion-code/
 ├── apps/
 │   ├── backend/                  # Main Backend + API server
 │   │   ├── src/
@@ -207,14 +207,14 @@ User → TUI Command → Application Use Case → Domain Logic → Infrastructur
 | Runtime | Node.js 18+ |
 | Module System | ESM |
 | Monorepo | npm workspaces + Turborepo |
-| CLI Framework | Commander.js (backend) |
-| TUI | Ink (React for TUI) |
+| Backend API | Fastify 5 |
+| TUI | Ink 5 + React 18 |
 | Testing | Vitest |
-| Linting | ESLint + Prettier |
+| Linting | Biome |
 | Build | tsc |
-| ORM | Prisma (optional) |
+| ORM | Drizzle ORM |
 | Cache | Redis + in-memory |
-| Providers | OpenAI, Anthropic, Ollama |
+| Providers | Ollama (local, free) |
 
 ## [S9] Plugin System
 

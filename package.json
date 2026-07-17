@@ -1,13 +1,13 @@
 {
-  "name": "orion-cli",
+  "name": "orion-code",
   "version": "0.1.0",
   "private": true,
-  "description": "Multi-Agent CLI - Intelligent Orchestration of AI Agents",
+  "description": "Multi-Agent TUI - Intelligent Orchestration of AI Agents",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "dev:frontend": "npm run dev --workspace=@orion/frontend",
+    "dev:tui": "npm run dev --workspace=@orion/tui",
     "dev:landing": "npm run dev --workspace=@orion/landing",
     "dev:backend": "npm run dev --workspace=@orion/backend",
     "lint": "biome lint .",

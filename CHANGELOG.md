@@ -7,33 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Renamed project from "Orion TUI" to "Orion Code"
+- Updated repository URL to https://github.com/vinnytherobot/orion-code.git
+
 ### Added
+- Orchestration MVP: Orchestrator, AgentExecutor, MessageBus, PostgreSQL persistence
+- Natural language input: type tasks in natural language for AI execution
+- `/implement` command: interactive task type selection with predefined templates
+- `/orchestrate` command: view orchestration status (running agents, pending/completed tasks)
+- Interactive selection menus with arrow-key navigation for all commands
+- Project name auto-detection (accepts human-readable names, not just UUIDs)
 - Landing page with React + Vite + Tailwind CSS
 - Landing page sections: Hero, Features, Agents, Providers, Architecture, Showcase, QuickStart, Stats, CTA
 - Landing page effects: StarryBackground, GrainOverlay, ScrollReveal, ScrollProgress, TiltCard, WaveDivider, ParallaxLayer
 - Landing page components: AnimatedCounter, AsciiArt, OrionLogo
 - Theme support with dark/light mode toggle
-- GitHub stats integration for landing page
-- Implement command (`/implement`) for AI-powered task implementation
-- Orchestrate command (`/orchestrate`) for managing orchestration status
-- Multiple LLM provider support (OpenAI, Anthropic, Ollama)
-- Provider selection based on agent type
-- Task type selection for implement command
-- Interactive select menus for commands
+- Backend API with Fastify 5 (auth, projects, tasks, agents, orchestration endpoints)
+- JWT + API Key authentication with persistent login
+- PostgreSQL 16 database with Drizzle ORM
+- Docker and docker-compose configuration
+- Biome linter and formatter (replaced ESLint + Prettier)
 
 ### Changed
-- Renamed project from "Orion TUI" to "Orion CLI"
-- Updated README.md with current project state
-- Updated CONTRIBUTING.md with current project structure
-- Enhanced CHANGELOG.md with comprehensive feature list
+- Renamed project from "Orion CLI" to "Orion TUI" across all documentation
+- All in-memory Maps replaced with PostgreSQL repositories
+- Default LLM model: `llama3` via Ollama (free, local inference)
+- Refresh tokens now have 100-year lifetime (no expiration)
 
 ### Packages
 - `@orion/shared` - Shared utilities (Result, AppError, Logger, ConfigLoader, OrionConfig)
 - `@orion/domain` - Domain entities (Agent, Task, Project, Value Objects, Repositories)
 - `@orion/application` - Use cases (AnalyzeProject, Plan, Implement) and Ports
-- `@orion/infrastructure` - Database (Drizzle ORM), Providers (OpenAI, Anthropic, Ollama), Cache, Orchestration
-- `@orion/backend` - Fastify API server (Auth, Projects, Tasks, Agents, Orchestration routes)
-- `@orion/frontend` - TUI interface with Ink/React (Interactive commands, API client, Token storage)
+- `@orion/infrastructure` - Database (Drizzle ORM), Providers (Ollama), Cache, Orchestration
+- `@orion/backend` - Fastify 5 API server (Auth, Projects, Tasks, Agents, Orchestration routes)
+- `@orion/frontend` - TUI interface with Ink 5/React 18 (Interactive commands, API client, Token storage)
 - `@orion/landing` - Landing page with React + Vite + Tailwind CSS
 
 ### Infrastructure
