@@ -8,8 +8,8 @@ const STEPS = [
   {
     title: 'Plan',
     icon: Workflow,
-    headline: 'Descreva. O Planner desmonta.',
-    body: 'Digite em linguagem natural. O Planner analisa o escopo, detecta o stack, e produz um grafo de tarefas com dependências — tudo dentro da TUI.',
+    headline: 'Describe. The Planner breaks it down.',
+    body: 'Type in natural language. The Planner analyzes the scope, detects the stack, and produces a dependency graph of tasks — all inside the TUI.',
     mockup: (
       <div className="rounded-lg border border-border bg-[#0a0a0f] font-mono text-[11px] leading-relaxed text-[#c0c0c0] shadow-2xl [background:linear-gradient(135deg,#0a0a0f,#0d0d1a)]">
         <div className="flex items-center gap-2 border-b border-[#1a1a2e] bg-[#050508] px-3 py-1.5 text-[10px]">
@@ -88,8 +88,8 @@ const STEPS = [
   {
     title: 'Execute',
     icon: LayoutDashboard,
-    headline: 'Agentes paralelos. TUI ao vivo.',
-    body: 'O Orchestrator despacha tarefas independentes simultaneamente. Cada agente tem permissão restrita. O dashboard mostra status, logs e progresso em tempo real.',
+    headline: 'Parallel agents. Live TUI.',
+    body: 'The Orchestrator dispatches independent tasks simultaneously. Each agent has restricted permissions. The dashboard shows status, logs, and progress in real time.',
     mockup: (
       <div className="rounded-lg border border-border bg-[#0a0a0f] font-mono text-[11px] leading-relaxed text-[#c0c0c0] shadow-2xl [background:linear-gradient(135deg,#0a0a0f,#0d0d1a)]">
         <div className="flex items-center gap-2 border-b border-[#1a1a2e] bg-[#050508] px-3 py-1.5 text-[10px]">
@@ -160,8 +160,8 @@ const STEPS = [
   {
     title: 'Ship',
     icon: GitMerge,
-    headline: 'Revisado. Commitado. Entregue.',
-    body: 'O Reviewer verifica cada diff. Auto-fixes são aplicados. O Git Agent commita com mensagens convencionais e abre o Pull Request — tudo sem sair da TUI.',
+    headline: 'Reviewed. Committed. Shipped.',
+    body: 'The Reviewer checks every diff. Auto-fixes are applied. The Git Agent commits with conventional messages and opens the Pull Request — all without leaving the TUI.',
     mockup: (
       <div className="rounded-lg border border-border bg-[#0a0a0f] font-mono text-[11px] leading-relaxed text-[#c0c0c0] shadow-2xl [background:linear-gradient(135deg,#0a0a0f,#0d0d1a)]">
         <div className="flex items-center gap-2 border-b border-[#1a1a2e] bg-[#050508] px-3 py-1.5 text-[10px]">
@@ -252,7 +252,7 @@ export function Features() {
               How it works
             </p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Uma TUI. 12 agentes. Zero context switch.
+              One TUI. 12 agents. Zero context switch.
             </h2>
           </div>
         </ScrollReveal>
