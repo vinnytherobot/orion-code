@@ -1,4 +1,4 @@
-// Providers
+﻿// Providers
 export type {
   ILLMProvider,
   LLMMessage,
@@ -8,6 +8,22 @@ export type {
 export { OpenAIProvider } from './providers/OpenAIProvider.js';
 export { AnthropicProvider } from './providers/AnthropicProvider.js';
 export { OllamaProvider } from './providers/OllamaProvider.js';
+export {
+  PROVIDER_CATALOG,
+  createProvider,
+  getProviderInfo,
+} from './providers/registry.js';
+export type { ProviderInfo } from './providers/registry.js';
+export {
+  loadProviderConfig,
+  saveProviderConfig,
+  getCurrentProvider,
+  setCurrentProvider,
+  getProviderApiKey,
+  setProviderApiKey,
+  getProviderConfig,
+  setProviderConfig,
+} from './providers/config.js';
 
 // Cache
 export { InMemoryCache } from './cache/InMemoryCache.js';

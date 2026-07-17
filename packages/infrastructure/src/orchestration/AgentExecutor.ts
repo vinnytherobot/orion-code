@@ -71,7 +71,19 @@ function getPromptForRole(role: string): { systemPrompt: string; taskTemplate: s
 }
 
 export class AgentExecutor implements IAgentExecutorPort {
-  constructor(private readonly llmProvider: ILLMProvider) {}
+  private llmProvider: ILLMProvider;
+
+  constructor(llmProvider: ILLMProvider) {
+    this.llmProvider = llmProvider;
+  }
+
+  getProvider(): ILLMProvider {
+    return this.llmProvider;
+  }
+
+  setProvider(provider: ILLMProvider): void {
+    this.llmProvider = provider;
+  }
 
   async execute(
     agent: AgentResponseDTO,
