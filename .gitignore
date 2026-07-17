@@ -31,3 +31,6 @@ Thumbs.db
 
 # Orion
 .orion/
+
+# Worktrees
+.worktrees/
