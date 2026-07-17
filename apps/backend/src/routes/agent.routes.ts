@@ -1,80 +1,74 @@
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import { Agent } from '@orion/domain';
 import type { AppDeps } from '../container.js';
-import { AgentService } from '../services/agent.service.js';
 
-export async function agentRoutes(app: FastifyInstance, _deps: AppDeps) {
-  const agentService = new AgentService();
+export async function agentRoutes(app: FastifyInstance, deps: AppDeps) {
+  const { orchestrator, agentRepository: agentRepo } = deps;
 
-  // GET /api/agents
   app.get('/api/agents', async (_request, reply) => {
-    const agents = await agentService.findAll();
-    return reply.send({ agents });
+    const agents = await agentRepo.findAll();
+    return reply.send({
+      agents: agents.map(a => {
+        const props = a.toJSON();
+        return {
+          id: props.id,
+          name: props.name,
+          role: props.role,
+          status: props.status.value,
+          capabilities: [...props.permissions],
+          currentTaskId: props.currentTaskId,
+          createdAt: props.createdAt.toISOString(),
+          updatedAt: props.updatedAt.toISOString(),
+        };
+      }),
+    });
   });
 
-  // GET /api/agents/stats
-  app.get('/api/agents/stats', async (_request, reply) => {
-    const stats = await agentService.getStats();
-    return reply.send({ stats });
+  app.post('/api/agents', async (request, reply) => {
+    const { name, role, capabilities, projectId } = request.body as {
+      name: string; role: string; capabilities?: string[]; projectId?: string;
+    };
+    if (!name || !role) {
+      return reply.status(400).send({ error: 'name and role are required' });
+    }
+
+    const agent = Agent.create({
+      id: randomUUID(),
+      name,
+      projectId: projectId || 'default',
+      role,
+      permissions: capabilities || [],
+    });
+    await agentRepo.save(agent);
+    return reply.status(201).send({ agent: { id: agent.id, name: agent.name, role: agent.role } });
   });
 
-  // GET /api/agents/:id
   app.get('/api/agents/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const agent = await agentService.findById(id);
-
+    const agent = await agentRepo.findById(id);
     if (!agent) {
       return reply.status(404).send({ error: 'Agent not found' });
     }
-
-    return reply.send({ agent });
+    const props = agent.toJSON();
+    return reply.send({
+      agent: {
+        id: props.id.toString(),
+        name: props.name,
+        role: props.role,
+        status: props.status.value,
+        capabilities: [...props.permissions],
+        currentTaskId: props.currentTaskId,
+        createdAt: props.createdAt.toISOString(),
+        updatedAt: props.updatedAt.toISOString(),
+      },
+    });
   });
 
-  // POST /api/agents/:id/assign
   app.post('/api/agents/:id/assign', async (request, reply) => {
     const { id } = request.params as { id: string };
     const { taskId } = request.body as { taskId: string };
-
-    if (!taskId) {
-      return reply.status(400).send({ error: 'taskId required' });
-    }
-
-    const agent = await agentService.assignTask(id, taskId);
-    if (!agent) {
-      return reply.status(400).send({ error: 'Agent not available' });
-    }
-
-    return reply.send({ agent });
-  });
-
-  // POST /api/agents/:id/complete
-  app.post('/api/agents/:id/complete', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const { result } = request.body as { result: string };
-
-    const agent = await agentService.completeTask(id, result || 'Completed');
-    if (!agent) {
-      return reply.status(404).send({ error: 'Agent not found' });
-    }
-
-    return reply.send({ agent });
-  });
-
-  // POST /api/agents/:id/reset
-  app.post('/api/agents/:id/reset', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const agent = await agentService.reset(id);
-
-    if (!agent) {
-      return reply.status(404).send({ error: 'Agent not found' });
-    }
-
-    return reply.send({ agent });
-  });
-
-  // POST /api/agents/initialize/:projectId
-  app.post('/api/agents/initialize/:projectId', async (request, reply) => {
-    const { projectId } = request.params as { projectId: string };
-    const agents = await agentService.initializeProjectAgents(projectId);
-    return reply.status(201).send({ agents });
+    await orchestrator.assignTask(taskId, id);
+    return reply.send({ success: true });
   });
 }

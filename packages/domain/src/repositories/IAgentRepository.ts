@@ -4,6 +4,8 @@ export interface IAgentRepository {
   findById(id: string): Promise<Agent | null>;
   findByName(name: string): Promise<Agent | null>;
   findAll(): Promise<Agent[]>;
+  findByProject(projectId: string): Promise<Agent[]>;
+  findByRole(role: string): Promise<Agent[]>;
   save(agent: Agent): Promise<void>;
   delete(id: string): Promise<void>;
 }

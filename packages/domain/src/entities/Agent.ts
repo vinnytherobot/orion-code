@@ -3,6 +3,7 @@ import { AgentStatus } from '../value-objects/AgentStatus.js';
 
 export interface AgentProps {
   id: string;
+  projectId: string;
   name: string;
   role: string;
   status: AgentStatus;
@@ -15,9 +16,10 @@ export interface AgentProps {
 export class Agent {
   private constructor(private props: AgentProps) {}
 
-  static create(input: { id: string; name: string; role: string; permissions?: string[] }): Agent {
+  static create(input: { id: string; projectId: string; name: string; role: string; permissions?: string[] }): Agent {
     return new Agent({
       id: input.id,
+      projectId: input.projectId,
       name: input.name,
       role: input.role,
       status: AgentStatus.idle(),
@@ -34,6 +36,10 @@ export class Agent {
 
   get id(): string {
     return this.props.id;
+  }
+
+  get projectId(): string {
+    return this.props.projectId;
   }
 
   get name(): string {

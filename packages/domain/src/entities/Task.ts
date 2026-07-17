@@ -4,6 +4,7 @@ import { TaskStatus } from '../value-objects/TaskStatus.js';
 
 export interface TaskProps {
   id: TaskId;
+  projectId: string;
   title: string;
   description: string;
   status: TaskStatus;
@@ -18,9 +19,10 @@ export interface TaskProps {
 export class Task {
   private constructor(private props: TaskProps) {}
 
-  static create(input: { title: string; description: string; parentTaskId?: string }): Task {
+  static create(input: { projectId: string; title: string; description: string; parentTaskId?: string }): Task {
     return new Task({
       id: TaskId.generate(),
+      projectId: input.projectId,
       title: input.title,
       description: input.description,
       status: TaskStatus.pending(),
@@ -39,6 +41,10 @@ export class Task {
 
   get id(): TaskId {
     return this.props.id;
+  }
+
+  get projectId(): string {
+    return this.props.projectId;
   }
 
   get title(): string {

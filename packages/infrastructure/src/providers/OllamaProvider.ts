@@ -73,9 +73,15 @@ export class OllamaProvider implements ILLMProvider {
   async isAvailable(): Promise<boolean> {
     try {
       const baseUrl = this.config.baseUrl ?? 'http://localhost:11434';
-      const response = await fetch(`${baseUrl}/api/tags`);
+      console.log(`[Ollama] Checking availability at ${baseUrl}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal });
+      clearTimeout(timeout);
+      console.log(`[Ollama] Response status: ${response.status}`);
       return response.ok;
-    } catch {
+    } catch (error) {
+      console.log(`[Ollama] Availability check failed: ${error}`);
       return false;
     }
   }

@@ -1,74 +1,74 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppDeps } from '../container.js';
-import { CreateTaskSchema, UpdateTaskSchema } from '../schemas/task.js';
-import { TaskService } from '../services/task.service.js';
 
-export async function taskRoutes(app: FastifyInstance, _deps: AppDeps) {
-  const taskService = new TaskService();
+export async function taskRoutes(app: FastifyInstance, deps: AppDeps) {
+  const { planUseCase, taskRepository: taskRepo } = deps;
 
-  // GET /api/tasks
-  app.get('/api/tasks', async (request, reply) => {
-    const { projectId } = request.query as { projectId?: string };
-    const tasks = await taskService.findAll(request.userId!, projectId);
-    return reply.send({ tasks });
+  app.get('/api/tasks', async (_request, reply) => {
+    const tasks = await taskRepo.findAll();
+    return reply.send({
+      tasks: tasks.map(t => {
+        const props = t.toJSON();
+        return {
+          id: props.id.toString(),
+          projectId: props.projectId,
+          title: props.title,
+          description: props.description,
+          status: props.status.value,
+          assignedAgentId: props.assignedAgentId,
+          parentTaskId: props.parentTaskId,
+          dependencies: [...props.dependencies],
+          result: props.result,
+          createdAt: props.createdAt.toISOString(),
+          updatedAt: props.updatedAt.toISOString(),
+        };
+      }),
+    });
   });
 
-  // POST /api/tasks
   app.post('/api/tasks', async (request, reply) => {
-    const result = CreateTaskSchema.safeParse(request.body);
-    if (!result.success) {
-      return reply.status(400).send({ error: result.error.issues });
+    const { projectId, title, description } = request.body as { projectId: string; title: string; description: string };
+    if (!projectId || !title) {
+      return reply.status(400).send({ error: 'projectId and title are required' });
     }
 
-    const task = await taskService.create(request.userId!, result.data.projectId, result.data);
-    return reply.status(201).send({ task });
+    const result = await planUseCase.execute({
+      projectId,
+      tasks: [{ title, description: description || title }],
+    });
+    if (result.isFail()) {
+      return reply.status(400).send({ error: result.error.message });
+    }
+    return reply.status(201).send({ task: result.value.tasks[0] });
   });
 
-  // GET /api/tasks/:id
   app.get('/api/tasks/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const task = await taskService.findById(id);
-
+    const task = await taskRepo.findById(id);
     if (!task) {
       return reply.status(404).send({ error: 'Task not found' });
     }
-
-    return reply.send({ task });
+    const props = task.toJSON();
+    return reply.send({
+      task: {
+        id: props.id.toString(),
+        projectId: props.projectId,
+        title: props.title,
+        description: props.description,
+        status: props.status.value,
+        assignedAgentId: props.assignedAgentId,
+        parentTaskId: props.parentTaskId,
+        dependencies: [...props.dependencies],
+        result: props.result,
+        createdAt: props.createdAt.toISOString(),
+        updatedAt: props.updatedAt.toISOString(),
+      },
+    });
   });
 
-  // PUT /api/tasks/:id
-  app.put('/api/tasks/:id', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const result = UpdateTaskSchema.safeParse(request.body);
-
-    if (!result.success) {
-      return reply.status(400).send({ error: result.error.issues });
-    }
-
-    const task = await taskService.update(id, result.data);
-    if (!task) {
-      return reply.status(404).send({ error: 'Task not found' });
-    }
-
-    return reply.send({ task });
-  });
-
-  // DELETE /api/tasks/:id
   app.delete('/api/tasks/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const deleted = await taskService.delete(id);
-
-    if (!deleted) {
-      return reply.status(404).send({ error: 'Task not found' });
-    }
-
+    await taskRepo.delete(id);
     return reply.send({ success: true });
-  });
-
-  // GET /api/tasks/stats/:projectId
-  app.get('/api/tasks/stats/:projectId', async (request, reply) => {
-    const { projectId } = request.params as { projectId: string };
-    const stats = await taskService.getProjectStats(projectId);
-    return reply.send({ stats });
   });
 }

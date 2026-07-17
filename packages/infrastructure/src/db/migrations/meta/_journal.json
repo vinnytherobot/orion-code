@@ -8,6 +8,20 @@
       "when": 1784172973394,
       "tag": "0000_wealthy_post",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784236627843,
+      "tag": "0001_nebulous_valeria_richards",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784237153369,
+      "tag": "0002_late_naoko",
+      "breakpoints": true
     }
   ]
 }

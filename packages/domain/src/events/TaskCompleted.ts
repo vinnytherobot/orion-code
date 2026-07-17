@@ -1,9 +1,11 @@
-export interface TaskCompletedEvent {
+import type { DomainEvent } from './DomainEvent.js';
+
+export interface TaskCompletedEvent extends DomainEvent {
   type: 'task.completed';
   taskId: string;
   agentId: string | null;
   result: string;
-  completedAt: Date;
+  occurredAt: Date;
 }
 
 export function createTaskCompletedEvent(
@@ -16,6 +18,6 @@ export function createTaskCompletedEvent(
     taskId,
     agentId,
     result,
-    completedAt: new Date(),
+    occurredAt: new Date(),
   };
 }

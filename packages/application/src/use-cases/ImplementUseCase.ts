@@ -1,7 +1,10 @@
 import type { Agent, IAgentRepository, ITaskRepository, Task } from '@orion/domain';
 import { AppError, type Result, fail, ok } from '@orion/shared';
+import { TaskAssignmentService, createTaskCompletedEvent } from '@orion/domain';
 import type { TaskResponseDTO } from '../dtos/TaskDTO.js';
 import type { IAgentExecutorPort } from '../ports/IAgentExecutorPort.js';
+import type { IEventBusPort } from '../ports/IEventBusPort.js';
+import type { IUnitOfWorkPort } from '../ports/IUnitOfWorkPort.js';
 
 function toTaskResponse(task: Task): TaskResponseDTO {
   const props = task.toJSON();
@@ -34,10 +37,14 @@ function toAgentResponse(agent: Agent) {
 }
 
 export class ImplementUseCase {
+  private assignmentService = new TaskAssignmentService();
+
   constructor(
     private readonly taskRepository: ITaskRepository,
     private readonly agentRepository: IAgentRepository,
     private readonly agentExecutor: IAgentExecutorPort,
+    private readonly eventBus?: IEventBusPort,
+    private readonly uow?: IUnitOfWorkPort,
   ) {}
 
   async execute(input: { taskId: string }): Promise<Result<TaskResponseDTO, AppError>> {
@@ -57,43 +64,65 @@ export class ImplementUseCase {
       return fail(AppError.conflict('No idle agents available'));
     }
 
-    const assignResult = task.assignTo(idleAgent.id);
+    const assignResult = this.assignmentService.assignTaskToAgent(task, idleAgent);
     if (assignResult.isFail()) {
       return fail(assignResult.error);
     }
 
-    const agentAssignResult = idleAgent.assignTask(task.id.toString());
-    if (agentAssignResult.isFail()) {
-      return fail(agentAssignResult.error);
-    }
+    if (this.uow) await this.uow.begin();
 
-    await this.taskRepository.save(task);
-    await this.agentRepository.save(idleAgent);
+    try {
+      await this.taskRepository.save(task);
+      await this.agentRepository.save(idleAgent);
+
+      if (this.uow) await this.uow.commit();
+    } catch (error) {
+      if (this.uow) await this.uow.rollback();
+      return fail(AppError.internal(error instanceof Error ? error.message : 'Failed to persist task assignment'));
+    }
 
     const execResult = await this.agentExecutor.execute(
       toAgentResponse(idleAgent),
       toTaskResponse(task),
     );
 
-    if (execResult.isFail()) {
-      task.fail(execResult.error.message);
-      idleAgent.reset();
+    if (this.uow) await this.uow.begin();
+
+    try {
+      if (execResult.isFail()) {
+        this.assignmentService.failTaskAssignment(task, idleAgent, execResult.error.message);
+        await this.taskRepository.save(task);
+        await this.agentRepository.save(idleAgent);
+        if (this.uow) await this.uow.commit();
+        return fail(execResult.error);
+      }
+
+      const execution = execResult.value;
+      if (execution.success) {
+        this.assignmentService.completeTaskAssignment(task, idleAgent, execution.output);
+      } else {
+        this.assignmentService.failTaskAssignment(task, idleAgent, execution.output);
+      }
+
       await this.taskRepository.save(task);
       await this.agentRepository.save(idleAgent);
-      return fail(execResult.error);
+
+      if (this.uow) await this.uow.commit();
+
+      // Publish domain event
+      if (this.eventBus && execution.success) {
+        const event = createTaskCompletedEvent(
+          task.id.toString(),
+          idleAgent.id,
+          execution.output,
+        );
+        await this.eventBus.publish(event);
+      }
+
+      return ok(toTaskResponse(task));
+    } catch (error) {
+      if (this.uow) await this.uow.rollback();
+      return fail(AppError.internal(error instanceof Error ? error.message : 'Execution failed'));
     }
-
-    const execution = execResult.value;
-    if (execution.success) {
-      task.complete(execution.output);
-    } else {
-      task.fail(execution.output);
-    }
-
-    idleAgent.completeTask();
-    await this.taskRepository.save(task);
-    await this.agentRepository.save(idleAgent);
-
-    return ok(toTaskResponse(task));
   }
 }
