@@ -8,27 +8,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Backend API with Fastify (auth, projects, tasks, agents endpoints)
-- JWT authentication with persistent login
-- PostgreSQL database with Drizzle ORM
-- Docker and docker-compose configuration
-- Biome linter and formatter (replaced ESLint + Prettier)
-- Login persistence on device (tokens stored in ~/.orion/auth.json)
-- API key management
-- Agent initialization and management
-- Task assignment and completion tracking
+- Landing page with React + Vite + Tailwind CSS
+- Landing page sections: Hero, Features, Agents, Providers, Architecture, Showcase, QuickStart, Stats, CTA
+- Landing page effects: StarryBackground, GrainOverlay, ScrollReveal, ScrollProgress, TiltCard, WaveDivider, ParallaxLayer
+- Landing page components: AnimatedCounter, AsciiArt, OrionLogo
+- Theme support with dark/light mode toggle
+- GitHub stats integration for landing page
+- Implement command (`/implement`) for AI-powered task implementation
+- Orchestrate command (`/orchestrate`) for managing orchestration status
+- Multiple LLM provider support (OpenAI, Anthropic, Ollama)
+- Provider selection based on agent type
+- Task type selection for implement command
+- Interactive select menus for commands
 
 ### Changed
-- Migrated from ESLint + Prettier to Biome
-- Refresh tokens now have 100-year lifetime (no expiration)
+- Renamed project from "Orion TUI" to "Orion CLI"
+- Updated README.md with current project state
+- Updated CONTRIBUTING.md with current project structure
+- Enhanced CHANGELOG.md with comprehensive feature list
 
 ### Packages
-- `@orion/shared` - Shared utilities (Result, AppError, Logger, Config)
-- `@orion/domain` - Domain entities (Agent, Task, Project, Value Objects)
-- `@orion/application` - Use cases (AnalyzeProject, Plan, Implement)
-- `@orion/infrastructure` - Implementations (Database, Providers, Cache)
-- `@orion/backend` - Fastify API server
-- `@orion/frontend` - TUI interface with Ink/React
+- `@orion/shared` - Shared utilities (Result, AppError, Logger, ConfigLoader, OrionConfig)
+- `@orion/domain` - Domain entities (Agent, Task, Project, Value Objects, Repositories)
+- `@orion/application` - Use cases (AnalyzeProject, Plan, Implement) and Ports
+- `@orion/infrastructure` - Database (Drizzle ORM), Providers (OpenAI, Anthropic, Ollama), Cache, Orchestration
+- `@orion/backend` - Fastify API server (Auth, Projects, Tasks, Agents, Orchestration routes)
+- `@orion/frontend` - TUI interface with Ink/React (Interactive commands, API client, Token storage)
+- `@orion/landing` - Landing page with React + Vite + Tailwind CSS
+
+### Infrastructure
+- Added Vite build tool for landing page
+- Added Tailwind CSS for styling
+- Added Radix UI for accessible components
+- Added Framer Motion for animations
+- Added PostCSS and Autoprefixer
 
 ## [0.1.0] - 2026-07-15
 
@@ -45,3 +58,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Slash commands (/help, /status, /agents, /tasks, /projects, etc.)
 - Monorepo with npm workspaces + Turborepo
 - TypeScript strict mode with ESM
+
+### Backend
+- Fastify API server with CORS, Helmet, Rate Limiting
+- JWT authentication with refresh tokens
+- PostgreSQL database with Drizzle ORM
+- Docker and docker-compose configuration
+- Biome linter and formatter (replaced ESLint + Prettier)
+- Login persistence on device (tokens stored in ~/.orion/auth.json)
+- API key management
+- Agent initialization and management
+- Task assignment and completion tracking
+
+### Database
+- User table with authentication
+- Agent table with roles and status
+- Task table with project association
+- Project table with path and description
+- Refresh token table for persistent login
+- API key table for API access
+
+### Frontend
+- TUI interface with interactive commands
+- API client for backend communication
+- Token storage for persistent login
+- Command history and autocomplete
+- ASCII art logo and welcome screen

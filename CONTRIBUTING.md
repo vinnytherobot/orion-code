@@ -1,6 +1,6 @@
-# Contributing to Orion TUI
+# Contributing to Orion CLI
 
-Thank you for your interest in contributing to Orion TUI! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Orion CLI! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -54,8 +54,8 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ```bash
 # Clone your fork
-git clone https://github.com/vinnytherobot/orion-tui.git
-cd orion-tui
+git clone https://github.com/vinnytherobot/orion-cli.git
+cd orion-cli
 
 # Install dependencies
 npm install
@@ -79,14 +79,16 @@ npm run dev
 |--------|-------------|
 | `npm run build` | Build all packages |
 | `npm run dev` | Watch mode for development |
-| `npm run dev:frontend` | Watch frontend only |
+| `npm run dev:frontend` | Watch frontend (TUI) only |
 | `npm run dev:backend` | Watch backend only |
+| `npm run dev:landing` | Watch landing page only |
 | `npm run lint` | Run Biome linter |
 | `npm run lint:fix` | Fix lint issues |
 | `npm run format` | Format code with Biome |
 | `npm run check` | Run Biome check (lint + format) |
 | `npm run check:fix` | Fix all Biome issues |
 | `npm run typecheck` | Run TypeScript typecheck |
+| `npm run test` | Run tests |
 | `npm run clean` | Clean build artifacts |
 | `npm run db:migrate` | Run database migrations |
 | `npm run db:generate` | Generate database migrations |
@@ -96,15 +98,16 @@ npm run dev
 ## Project Structure
 
 ```
-orion-tui/
+orion-cli/
 ├── apps/
 │   ├── backend/          # Fastify API server
-│   └── frontend/         # TUI interface
+│   ├── frontend/         # TUI interface (Ink/React)
+│   └── landing/          # Landing page (React + Vite + Tailwind)
 ├── packages/
-│   ├── shared/           # Shared utilities
-│   ├── domain/           # Domain entities
-│   ├── application/      # Use cases
-│   └── infrastructure/   # Database, providers, cache
+│   ├── shared/           # Shared utilities (Result, AppError, Logger, Config)
+│   ├── domain/           # Domain entities (Agent, Task, Project)
+│   ├── application/      # Use cases (AnalyzeProject, Plan, Implement)
+│   └── infrastructure/   # Database, providers, cache, orchestration
 ├── docs/
 │   └── compose/          # Specs and plans
 └── .github/              # GitHub templates
@@ -116,8 +119,8 @@ The project follows DDD (Domain-Driven Design) with Clean Architecture:
 
 - **Domain Layer** - Pure business logic, no dependencies
 - **Application Layer** - Use cases, orchestrates domain
-- **Infrastructure Layer** - Implements interfaces (database, providers)
-- **Presentation Layer** - User interface (TUI) and API (Fastify)
+- **Infrastructure Layer** - Implements interfaces (database, providers, cache, orchestration)
+- **Presentation Layer** - User interface (TUI), API (Fastify), and Landing Page (React + Vite)
 
 ### Package Dependencies
 
@@ -132,6 +135,18 @@ infrastructure (depends on domain + shared)
     ↑
 apps (depends on application + infrastructure)
 ```
+
+### Key Packages
+
+| Package | Description |
+|---------|-------------|
+| `@orion/shared` | Shared utilities (Result, AppError, Logger, Config) |
+| `@orion/domain` | Domain entities (Agent, Task, Project, Value Objects) |
+| `@orion/application` | Use cases (AnalyzeProject, Plan, Implement) |
+| `@orion/infrastructure` | Database, LLM providers, cache, orchestration |
+| `@orion/backend` | Fastify API server with JWT auth |
+| `@orion/frontend` | TUI interface with Ink/React |
+| `@orion/landing` | Landing page with React + Vite + Tailwind |
 
 ## Coding Standards
 
@@ -198,6 +213,7 @@ feat(domain): add Agent entity with permission checking
 fix(infrastructure): handle API timeout in OpenAI provider
 docs(readme): add installation instructions
 test(domain): add unit tests for Task entity
+feat(landing): add hero section with animations
 ```
 
 ## Pull Request Process
