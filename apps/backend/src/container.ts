@@ -25,7 +25,8 @@ import {
   ProjectUseCase,
 } from '@orion/application';
 import type { IJWTProviderPort } from '@orion/application';
-import { makeProviderService, type ProviderService } from './services/provider.service.js';
+import { ProviderAdapter } from '@orion/infrastructure';
+import { ProviderUseCase } from '@orion/application';
 
 export type AppDeps = {
   planUseCase: PlanUseCase;
@@ -36,7 +37,7 @@ export type AppDeps = {
   orchestrator: Orchestrator;
   taskRepository: TaskRepository;
   agentRepository: AgentRepository;
-  providerService: ProviderService;
+  providerUseCase: ProviderUseCase;
   generateId: () => string;
   now: () => Date;
 };
@@ -115,7 +116,8 @@ export function buildDeps(jwtSecret: string): AppDeps {
   });
   
   const agentExecutor = new AgentExecutor(llmProvider);
-  const providerService = makeProviderService({ agentExecutor });
+  const providerAdapter = new ProviderAdapter(agentExecutor);
+  const providerUseCase = new ProviderUseCase(providerAdapter);
   const jwtProvider = createJWTProvider(jwtSecret);
 
   const planUseCase = new PlanUseCase(taskRepository, unitOfWork);
@@ -156,7 +158,7 @@ export function buildDeps(jwtSecret: string): AppDeps {
     orchestrator,
     taskRepository,
     agentRepository,
-    providerService,
+    providerUseCase,
     generateId,
     now,
   };

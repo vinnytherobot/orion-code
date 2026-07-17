@@ -80,7 +80,7 @@ async function main(): Promise<void> {
   await fastify.register((instance) => taskRoutes(instance, deps));
   await fastify.register((instance) => agentRoutes(instance, deps));
   await fastify.register((instance) => orchestrationRoutes(instance, deps));
-  await fastify.register((instance) => providerRoutes(instance, deps.providerService));
+  await fastify.register((instance) => providerRoutes(instance, deps.providerUseCase));
 
   fastify.get('/api/health', async () => {
     return {

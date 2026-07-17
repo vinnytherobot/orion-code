@@ -1,33 +1,29 @@
-﻿import type { FastifyInstance } from 'fastify';
-import type { ProviderService } from '../services/provider.service.js';
+import type { FastifyInstance } from 'fastify';
+import type { ProviderUseCase } from '@orion/application';
 
-export async function providerRoutes(app: FastifyInstance, providerService: ProviderService) {
+export async function providerRoutes(app: FastifyInstance, providerUseCase: ProviderUseCase) {
   app.get('/api/providers', async (_request, reply) => {
-    const providers = providerService.getAvailableProviders();
+    const providers = providerUseCase.getAvailableProviders();
     return reply.send({ providers });
   });
 
   app.get('/api/provider', async (_request, reply) => {
-    const current = providerService.getCurrentProvider();
+    const current = providerUseCase.getCurrentProvider();
     return reply.send({ provider: current });
   });
 
   app.post('/api/provider', async (request, reply) => {
     const { provider: name, apiKey } = request.body as { provider: string; apiKey?: string };
-    
+
     if (!name) {
       return reply.status(400).send({ error: 'provider name is required' });
     }
-    
-    const result = await providerService.switchProvider(name, apiKey);
-    
-    if (!result.isOk()) {
-      return reply.status(400).send({ error: result.error.message });
+
+    try {
+      const provider = await providerUseCase.switchProvider(name, apiKey);
+      return reply.send({ success: true, provider });
+    } catch (error) {
+      return reply.status(400).send({ error: error instanceof Error ? error.message : 'Failed to switch provider' });
     }
-    
-    return reply.send({ 
-      success: true, 
-      provider: result.value 
-    });
   });
 }
