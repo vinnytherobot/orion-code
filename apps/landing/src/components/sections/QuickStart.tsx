@@ -20,12 +20,12 @@ const COMMENTS: Record<keyof typeof COMMANDS, string> = {
 
 export function QuickStart() {
   return (
-    <section id="quick-start" className="border-t border-border bg-background py-24">
+    <section id="quick-start" className="border-t border-border bg-background py-16 sm:py-24">
       <div className="container">
         <ScrollReveal>
           <div className="mb-12">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Quick start</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-4xl">
               Up and running in 30 seconds.
             </h2>
             <p className="mt-3 max-w-2xl text-muted-foreground">
@@ -37,10 +37,10 @@ export function QuickStart() {
 
         <ScrollReveal delay={0.1}>
           <Tabs defaultValue="npm" className="rounded-xl border border-border bg-card">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-2 sm:px-4">
               <TabsList>
                 {Object.keys(COMMANDS).map((key) => (
-                  <TabsTrigger key={key} value={key}>
+                  <TabsTrigger key={key} value={key} className="px-2 sm:px-4">
                     {key === 'npm' && 'npm'}
                     {key === 'pnpm' && 'pnpm'}
                     {key === 'brew' && 'Homebrew'}
@@ -48,22 +48,22 @@ export function QuickStart() {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <span className="rounded-full border border-border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
                 Stable
               </span>
             </div>
 
             {Object.entries(COMMANDS).map(([key, command]) => (
-              <TabsContent key={key} value={key} className="m-0 p-6">
+              <TabsContent key={key} value={key} className="m-0 p-2 sm:p-6">
                 <div className="relative rounded-lg border border-border bg-background">
-                  <pre className="overflow-x-auto p-4 font-mono text-sm text-foreground scrollbar-hide">
+                  <pre className="overflow-x-auto p-2 sm:p-4 font-mono text-[10px] sm:text-sm text-foreground scrollbar-hide whitespace-pre-wrap break-words">
                     <span className="text-muted-foreground">
                       {COMMENTS[key as keyof typeof COMMANDS]}
                     </span>
                     {'\n'}
                     <span className="text-primary">$</span> {command}
                   </pre>
-                  <div className="absolute right-2 top-2">
+                  <div className="absolute right-1 top-1">
                     <CopyButton value={command} />
                   </div>
                 </div>

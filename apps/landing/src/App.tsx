@@ -19,7 +19,7 @@ export default function App() {
     <ThemeProvider>
       <ScrollProgress />
       <GrainOverlay />
-      <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex min-h-screen flex-col bg-background w-full max-w-full">
         <Navbar />
         <main className="flex-1">
           <Hero />
