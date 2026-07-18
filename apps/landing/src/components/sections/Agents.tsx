@@ -36,12 +36,12 @@ export function Agents() {
   }, []);
 
   return (
-    <section id="agents" className="border-t border-border bg-background py-24">
+    <section id="agents" className="border-t border-border bg-background py-16 sm:py-24">
       <div className="container">
         <ScrollReveal>
           <div className="mx-auto mb-16 max-w-2xl text-center">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">The team</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-4xl">
               12 agents. One job each.
             </h2>
             <p className="mt-4 text-muted-foreground">
@@ -58,7 +58,7 @@ export function Agents() {
             return (
               <StaggerItem key={agent.id}>
                 <TiltCard className="h-full rounded-xl border border-border bg-card">
-                  <div className="group relative h-full rounded-xl p-5 transition-all duration-300 hover:border-primary/40 hover:shadow-[0_0_30px_rgba(139,92,246,0.06)]">
+                  <div className="group relative h-full rounded-xl p-4 sm:p-5 transition-all duration-300 hover:border-primary/40 hover:shadow-[0_0_30px_rgba(139,92,246,0.06)]">
                     <div className="absolute right-4 top-4 flex items-center gap-1.5 text-[10px] font-mono select-none">
                       <span className="relative flex h-1.5 w-1.5">
                         {state === 'running' && (

@@ -7,7 +7,7 @@ import { ArrowRight, Github } from 'lucide-react';
 
 export function CTA() {
   return (
-    <section className="relative overflow-hidden border-t border-border py-24">
+    <section className="relative overflow-hidden border-t border-border py-16 sm:py-24">
       <div
         className="absolute inset-0 -z-10 bg-gradient-to-b from-background via-primary/[0.06] to-background"
         aria-hidden="true"
@@ -69,7 +69,7 @@ export function CTA() {
       <div className="container">
         <ScrollReveal>
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-5xl">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-5xl">
               Stop managing tasks. <span className="text-primary">Start shipping them.</span>
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
@@ -81,15 +81,15 @@ export function CTA() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2 }}
-              className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row"
+              className="mt-8 sm:mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row w-full"
             >
-              <Button asChild size="lg" className="group shimmer-btn shadow-glow">
+              <Button asChild size="lg" className="group shimmer-btn shadow-glow w-full sm:w-auto">
                 <a href="#quick-start">
                   Install Orion Code
                   <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
                 </a>
               </Button>
-              <Button asChild size="lg" variant="ghost">
+              <Button asChild size="lg" variant="ghost" className="w-full sm:w-auto">
                 <a href="https://github.com/vinnytherobot/orion-code">
                   <Github />
                   Star on GitHub

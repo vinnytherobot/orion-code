@@ -1,5 +1,6 @@
 import { Box, Text } from 'ink';
 import type React from 'react';
+import { STATUS_COLORS, STATUS_ICONS, theme } from '../theme.js';
 
 type TaskStatusValue =
   | 'pending'
@@ -32,42 +33,25 @@ const DEMO_TASKS: Task[] = [
 
 export function TaskList({ tasks = DEMO_TASKS }: TaskListProps): React.ReactElement {
   return (
-    <Box flexDirection="column" borderStyle="single" borderColor="magenta" paddingX={1}>
-      <Text bold color="magenta">
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.surfaceBorderLight} paddingX={1} marginTop={1}>
+      <Text bold color={theme.secondary}>
         Tasks
       </Text>
-      {tasks.map((task) => (
-        <Box key={task.id}>
-          <Text>{getStatusIcon(task.status)} </Text>
-          <Text bold>{task.title}</Text>
-          {task.assignedAgentId && <Text color="gray"> [{task.assignedAgentId}]</Text>}
-        </Box>
-      ))}
+      <Box flexDirection="column" marginTop={1} gap={0}>
+        {tasks.map((task) => (
+          <Box key={task.id} gap={1}>
+            <Text color={STATUS_COLORS[task.status] || theme.textDim}>
+              {STATUS_ICONS[task.status] || '?'}{' '}
+            </Text>
+            <Text bold color={theme.text}>
+              {task.title}
+            </Text>
+            {task.assignedAgentId && (
+              <Text color={theme.textDim}>→ {task.assignedAgentId}</Text>
+            )}
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
-}
-
-function getStatusIcon(status: TaskStatusValue): string {
-  switch (status) {
-    case 'completed':
-      return '✓';
-    case 'running':
-      return '⟳';
-    case 'failed':
-      return '✗';
-    case 'pending':
-      return '○';
-    case 'planning':
-      return '◎';
-    case 'waiting':
-      return '⏳';
-    case 'review':
-      return '👁';
-    case 'testing':
-      return '⚡';
-    case 'cancelled':
-      return '⊘';
-    default:
-      return '?';
-  }
 }

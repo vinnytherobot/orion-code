@@ -35,16 +35,15 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
     setMessages((prev) => [...prev, msg]);
   }, []);
 
-  
   const handleInteractiveSelect = useCallback(async (option: SelectOption) => {
     if (!interactiveMenu || interactiveMenu.type !== 'select') return;
-    
+
     const currentMenu = interactiveMenu;
     setInteractiveMenu(null);
     addMessage('system', 'Processing...');
-    
+
     const result = await currentMenu.callback(option.value);
-    
+
     if (result && typeof result === 'object' && 'type' in result) {
       setInteractiveMenu(result as InteractiveCommand);
     } else if (result) {
@@ -54,13 +53,13 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
 
   const handleInteractiveInput = useCallback(async (value: string) => {
     if (!interactiveMenu || interactiveMenu.type !== 'input') return;
-    
+
     const currentMenu = interactiveMenu;
     setInteractiveMenu(null);
     addMessage('system', 'Processing...');
-    
+
     const result = await currentMenu.callback(value);
-    
+
     if (result && typeof result === 'object' && 'type' in result) {
       setInteractiveMenu(result as InteractiveCommand);
     } else if (result) {
@@ -78,7 +77,6 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
       const trimmed = input.trim();
       if (!trimmed) return;
 
-      // Handle commands starting with /
       if (trimmed.startsWith('/')) {
         const result = await executeCommand(trimmed);
 
@@ -103,10 +101,8 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
         return;
       }
 
-      // Natural language — treat as user message
       addMessage('user', trimmed);
 
-      // Placeholder: simulate orchestrator response
       setTimeout(() => {
         addMessage(
           'system',
@@ -117,8 +113,6 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
     [addMessage, exit],
   );
 
-  
-  // If interactive menu is active, show it
   if (interactiveMenu) {
     if (interactiveMenu.type === 'select') {
       return (
@@ -133,7 +127,7 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
         </Box>
       );
     }
-    
+
     if (interactiveMenu.type === 'input') {
       return (
         <Box flexDirection="column">
@@ -150,9 +144,8 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
     }
   }
 
-// Main view — welcome always visible, messages below
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" paddingX={1} paddingY={1}>
       <WelcomeScreen model={model} directory={process.cwd()} />
       {messages.length > 0 && <MessageHistory messages={messages} />}
       <PromptInput onSubmit={handleSubmit} />

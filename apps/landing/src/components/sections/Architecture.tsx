@@ -49,7 +49,7 @@ export function Architecture() {
   const inView = useInView(ref, { once: true, margin: '-100px 0px' });
 
   return (
-    <section id="architecture" className="relative overflow-hidden border-t border-border py-24">
+    <section id="architecture" className="relative overflow-hidden border-t border-border py-16 sm:py-24">
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background via-primary/[0.02] to-background" />
 
       <div className="container">
@@ -58,7 +58,7 @@ export function Architecture() {
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">
               Architecture
             </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-4xl">
               A DAG of specialized agents.
             </h2>
             <p className="mt-4 text-muted-foreground">
@@ -69,8 +69,9 @@ export function Architecture() {
           </div>
         </ScrollReveal>
 
-        <div ref={ref} className="mx-auto max-w-5xl">
-          <div className="relative aspect-[2/1] w-full">
+        <div ref={ref} className="mx-auto max-w-5xl px-2 sm:px-0">
+          <div className="overflow-x-auto scrollbar-hide -mx-2 sm:mx-0">
+            <div className="relative aspect-[3/2] w-[400px] sm:w-full sm:aspect-[2/1] min-w-0">
             <svg
               viewBox="0 0 1000 640"
               className="h-full w-full"
@@ -163,6 +164,7 @@ export function Architecture() {
                 </motion.g>
               ))}
             </svg>
+          </div>
           </div>
 
           <ScrollReveal delay={0.3}>

@@ -40,12 +40,12 @@ export function Navbar() {
           <OrionLogo size={28} withWordmark />
         </a>
 
-        <ul className="hidden items-center gap-1 md:flex">
+        <ul className="hidden items-center gap-1 sm:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.href}>
               <a
                 href={link.href}
-                className="group relative rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="group relative rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground lg:px-3"
               >
                 {link.label}
                 <span className="pointer-events-none absolute inset-x-3 -bottom-0.5 h-px origin-center scale-x-0 bg-primary transition-transform duration-300 ease-out group-hover:scale-x-100" />
@@ -54,7 +54,7 @@ export function Navbar() {
           ))}
         </ul>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <ThemeToggle />
           <Button asChild size="sm" className="hidden sm:inline-flex">
             <a href="#quick-start">Get started</a>
@@ -62,7 +62,7 @@ export function Navbar() {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="sm:hidden"
             onClick={() => setMobileOpen((s) => !s)}
             aria-label="Toggle menu"
           >
@@ -78,7 +78,7 @@ export function Navbar() {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-t border-border bg-background md:hidden"
+            className="overflow-hidden border-t border-border bg-background sm:hidden"
           >
             <ul className="container flex flex-col gap-1 py-4">
               {NAV_LINKS.map((link) => (

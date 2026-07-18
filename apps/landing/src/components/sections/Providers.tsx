@@ -15,12 +15,12 @@ const ICON_MAP: Record<string, string> = {
 
 export function Providers() {
   return (
-    <section id="providers" className="border-t border-border bg-background py-24">
+    <section id="providers" className="border-t border-border bg-background py-16 sm:py-24">
       <div className="container">
         <ScrollReveal>
           <div className="mx-auto mb-16 max-w-2xl text-center">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Providers</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-4xl">
               Use the right model for each agent.
             </h2>
             <p className="mt-4 text-muted-foreground">
@@ -38,7 +38,7 @@ export function Providers() {
           {PROVIDERS.map((provider) => (
             <StaggerItem key={provider.id}>
               <TiltCard className="rounded-xl border border-border bg-card">
-                <div className="group flex h-full flex-col items-center justify-center rounded-xl p-5 text-center transition-colors hover:border-primary/40">
+                  <div className="group flex h-full flex-col items-center justify-center rounded-xl p-3 sm:p-5 text-center transition-colors hover:border-primary/40">
                   <div className="mb-2 text-2xl text-primary transition-transform group-hover:scale-110">
                     {ICON_MAP[provider.id]}
                   </div>

@@ -1,5 +1,6 @@
 import { Box, Text } from 'ink';
 import type React from 'react';
+import { STATUS_COLORS, STATUS_ICONS, theme } from '../theme.js';
 
 type AgentStatusValue = 'idle' | 'running' | 'waiting' | 'failed' | 'completed';
 
@@ -24,33 +25,26 @@ const DEMO_AGENTS: Agent[] = [
 
 export function AgentPanel({ agents = DEMO_AGENTS }: AgentPanelProps): React.ReactElement {
   return (
-    <Box flexDirection="column" borderStyle="single" borderColor="magenta" paddingX={1}>
-      <Text bold color="magenta">
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.surfaceBorderLight} paddingX={1} marginTop={1}>
+      <Text bold color={theme.purple}>
         Agents
       </Text>
-      {agents.map((agent) => (
-        <Box key={agent.id}>
-          <Text color={getStatusColor(agent.status)}>● </Text>
-          <Text bold>{agent.name}</Text>
-          <Text color="gray"> ({agent.role})</Text>
-          {agent.currentTaskId && <Text color="magenta"> → {agent.currentTaskId}</Text>}
-        </Box>
-      ))}
+      <Box flexDirection="column" marginTop={1} gap={0}>
+        {agents.map((agent) => (
+          <Box key={agent.id} gap={1}>
+            <Text color={STATUS_COLORS[agent.status] || theme.textDim}>
+              {STATUS_ICONS[agent.status] || '○'}
+            </Text>
+            <Text bold color={theme.text}>
+              {agent.name}
+            </Text>
+            <Text color={theme.textDim}>{agent.role}</Text>
+            {agent.currentTaskId && (
+              <Text color={theme.secondary}>→ {agent.currentTaskId}</Text>
+            )}
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
-}
-
-function getStatusColor(status: AgentStatusValue): string {
-  switch (status) {
-    case 'running':
-      return 'magenta';
-    case 'waiting':
-      return 'magenta';
-    case 'failed':
-      return 'red';
-    case 'completed':
-      return 'green';
-    default:
-      return 'gray';
-  }
 }

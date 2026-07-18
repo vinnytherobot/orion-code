@@ -19,7 +19,7 @@ export function WaveDivider({ className, flip = false }: WaveDividerProps) {
       <svg
         viewBox="0 0 1200 120"
         preserveAspectRatio="none"
-        className="relative block w-full h-[24px]"
+        className="relative block w-full h-[16px] sm:h-[20px] md:h-[24px]"
         fill="currentColor"
         xmlns="http://www.w3.org/2000/svg"
       >

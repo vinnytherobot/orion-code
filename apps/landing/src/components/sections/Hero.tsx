@@ -26,7 +26,7 @@ export function Hero() {
   return (
     <section
       id="top"
-      className="relative isolate flex min-h-[calc(100vh-4rem)] items-center overflow-hidden pt-24"
+      className="relative isolate flex min-h-[calc(100dvh-4rem)] items-center overflow-hidden pt-20 sm:pt-24"
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setOpacity(1)}
       onMouseLeave={() => setOpacity(0)}
@@ -108,7 +108,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-          className="mt-8 font-mono text-xs uppercase tracking-[0.3em] text-primary sm:text-sm"
+          className="mt-8 font-mono text-[10px] uppercase tracking-[0.3em] text-primary sm:text-sm"
         >
           Open Source · Runs on your machine
         </motion.p>
@@ -120,7 +120,7 @@ export function Hero() {
           }}
           initial="hidden"
           animate="visible"
-          className="mt-6 text-balance text-4xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl font-display"
+          className="mt-6 text-balance text-3xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl font-display"
         >
           {headlineWords.map((word, i) => (
             <span key={i} className="inline-block overflow-hidden pb-1">
@@ -145,7 +145,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1.1 }}
-          className="mt-6 max-w-2xl text-balance text-base text-muted-foreground sm:text-lg"
+          className="mt-6 max-w-2xl text-balance text-sm text-muted-foreground sm:text-base lg:text-lg"
         >
           An interactive Terminal User Interface acting as a virtual Tech Lead. It plans,
           decomposes, and coordinates 12 specialized agents to build, review, test, and ship code in
@@ -156,7 +156,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1.25 }}
-          className="mt-10 flex flex-col gap-3 sm:flex-row"
+          className="mt-8 sm:mt-10 flex flex-col gap-3 sm:flex-row w-full sm:w-auto"
         >
           <Button asChild size="lg" className="group shimmer-btn shadow-glow">
             <a href="#quick-start">
@@ -176,7 +176,7 @@ export function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 1.4 }}
-          className="mt-16 flex items-center gap-6 text-xs text-muted-foreground sm:text-sm"
+          className="mt-10 sm:mt-16 flex items-center gap-2 sm:gap-6 text-xs text-muted-foreground sm:text-sm flex-wrap justify-center"
         >
           <span className="font-mono">
             $ orion <span className="text-primary/50"># Launch interactive TUI</span>

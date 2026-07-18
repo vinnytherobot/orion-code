@@ -45,9 +45,9 @@ const COLUMNS = [
 export function Footer() {
   return (
     <footer className="border-t border-border bg-background">
-      <div className="container py-16">
-        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-6">
-          <div className="lg:col-span-2">
+      <div className="container py-12 sm:py-16">
+        <div className="grid gap-8 sm:gap-12 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="col-span-2 sm:col-span-3 lg:col-span-2">
             <OrionLogo size={32} withWordmark />
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">
               Multi-agent code orchestration. A virtual Tech Lead that coordinates specialized AI

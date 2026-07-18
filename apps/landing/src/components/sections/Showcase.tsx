@@ -42,7 +42,7 @@ export function Showcase() {
   }, [ref.isInView]);
 
   return (
-    <section id="showcase" className="relative overflow-hidden border-t border-border py-24">
+    <section id="showcase" className="relative overflow-hidden border-t border-border py-16 sm:py-24">
       <div
         className="absolute inset-0 -z-10 bg-gradient-to-b from-background via-primary/[0.03] to-background"
         aria-hidden="true"
@@ -52,7 +52,7 @@ export function Showcase() {
         <ScrollReveal>
           <div className="mx-auto mb-16 max-w-2xl text-center">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Showcase</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-4xl">
               Watch it work.
             </h2>
             <p className="mt-4 text-muted-foreground">
@@ -65,18 +65,18 @@ export function Showcase() {
         <ScrollReveal delay={0.1}>
           <div
             ref={ref.ref}
-            className="mx-auto max-w-3xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl crt-scanlines"
+            className="mx-auto max-w-3xl overflow-x-auto rounded-xl border border-border bg-card shadow-2xl crt-scanlines scrollbar-hide"
           >
-            <div className="flex items-center justify-between border-b border-border bg-secondary/50 px-4 py-2.5">
-              <div className="flex gap-1.5">
+            <div className="flex items-center justify-between gap-2 border-b border-border bg-secondary/50 px-3 sm:px-4 py-2.5">
+              <div className="flex gap-1.5 shrink-0">
                 <span className="h-2.5 w-2.5 rounded-full bg-red-500/70" />
                 <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/70" />
                 <span className="h-2.5 w-2.5 rounded-full bg-green-500/70" />
               </div>
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="font-mono text-[10px] sm:text-xs text-muted-foreground truncate min-w-0">
                 orion ~ ~/projects/api
               </span>
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground shrink-0">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -85,7 +85,7 @@ export function Showcase() {
               </span>
             </div>
 
-            <div className="space-y-1.5 p-6 font-mono text-sm leading-relaxed">
+            <div className="space-y-1.5 p-4 sm:p-6 font-mono text-xs sm:text-sm leading-relaxed">
               {MESSAGES.slice(0, visibleCount).map((m, i) => (
                 <motion.div
                   key={i}

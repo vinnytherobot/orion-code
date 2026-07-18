@@ -2,6 +2,7 @@ import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import type React from 'react';
 import { useState } from 'react';
+import { theme } from '../theme.js';
 import { getCommandSuggestions } from '../utils/commands.js';
 
 interface PromptInputProps {
@@ -49,9 +50,7 @@ export function PromptInput({ onSubmit }: PromptInputProps): React.ReactElement 
     setTempInput('');
   };
 
-  // Handle arrow key navigation
   useInput((_inputChar, key) => {
-    // Navigate suggestions if visible
     if (suggestions.length > 0) {
       if (key.upArrow) {
         setSelectedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
@@ -71,7 +70,6 @@ export function PromptInput({ onSubmit }: PromptInputProps): React.ReactElement 
       }
     }
 
-    // Navigate command history
     if (key.upArrow) {
       if (history.length === 0) return;
 
@@ -105,10 +103,10 @@ export function PromptInput({ onSubmit }: PromptInputProps): React.ReactElement 
     history.length > 0 && historyIndex === -1 && suggestions.length === 0 && !input;
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.surfaceBorder} paddingX={1}>
       <Box>
-        <Text color="magenta" bold>
-          {'> '}
+        <Text color={theme.secondary} bold>
+          {'❯ '}
         </Text>
         <TextInput
           value={input}
@@ -118,26 +116,32 @@ export function PromptInput({ onSubmit }: PromptInputProps): React.ReactElement 
         />
       </Box>
       {suggestions.length > 0 && (
-        <Box flexDirection="column" paddingLeft={2}>
+        <Box flexDirection="column" paddingLeft={2} marginTop={1} borderLeft borderColor={theme.surfaceBorder}>
           {suggestions.slice(0, 8).map((suggestion, index) => (
-            <Text
-              key={suggestion}
-              color={index === selectedIndex ? 'magenta' : 'gray'}
-              inverse={index === selectedIndex}
-            >
-              {index === selectedIndex ? '> ' : '  '}
-              {suggestion}
-            </Text>
+            <Box key={suggestion} gap={1}>
+              <Text
+                color={index === selectedIndex ? theme.secondary : theme.textDim}
+                inverse={index === selectedIndex}
+              >
+                {index === selectedIndex ? '▸' : ' '}
+              </Text>
+              <Text
+                color={index === selectedIndex ? theme.textBright : theme.textDim}
+                bold={index === selectedIndex}
+              >
+                {suggestion}
+              </Text>
+            </Box>
           ))}
-          <Text color="gray" dimColor>
-            ↑↓ navigate · Tab to fill · Enter to select
+          <Text color={theme.textDim}>
+            ↑↓ navigate · Tab fill · Enter select
           </Text>
         </Box>
       )}
       {showHistoryHint && (
-        <Box paddingLeft={2}>
-          <Text color="gray" dimColor>
-            ↑↓ browse history ({history.length} commands)
+        <Box paddingLeft={2} marginTop={1}>
+          <Text color={theme.textDim}>
+            ↑↓ history ({history.length} commands)
           </Text>
         </Box>
       )}

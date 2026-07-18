@@ -1,5 +1,6 @@
 import { Box, Text } from 'ink';
 import type React from 'react';
+import { theme } from '../theme.js';
 
 interface StatusBarProps {
   model?: string;
@@ -11,14 +12,24 @@ export function StatusBar({
   agentCount = 0,
 }: StatusBarProps): React.ReactElement {
   return (
-    <Box borderStyle="round" borderColor="magenta" paddingX={1} justifyContent="space-between">
-      <Box>
-        <Text color="gray">/ for shortcuts ·</Text>
+    <Box
+      borderStyle="round"
+      borderColor={theme.surfaceBorderLight}
+      paddingX={1}
+      justifyContent="space-between"
+      marginTop={1}
+    >
+      <Box gap={1}>
+        <Text color={theme.textDim}>⌘</Text>
+        <Text color={theme.textDim}>/ for commands</Text>
       </Box>
-      <Box>
-        <Text color="magenta">{model}</Text>
-        <Text color="gray">{' │ '}</Text>
-        <Text color="magenta">{agentCount} agents</Text>
+      <Box gap={1}>
+        <Text color={theme.textDim}>●</Text>
+        <Text color={agentCount > 0 ? theme.secondary : theme.textDim}>
+          {agentCount} agent{agentCount !== 1 ? 's' : ''}
+        </Text>
+        <Text color={theme.surfaceBorderLight}>│</Text>
+        <Text color={theme.purple}>{model}</Text>
       </Box>
     </Box>
   );

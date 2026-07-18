@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 
 const ORION_LINES = [
-  '  ██████╗ ██████╗  ██╗ ██████╗ ███╗   ██╗',
+  '  ██████╗ ██████╗  ██╗  ██████╗ ███╗   ██╗',
   ' ██╔═══██╗██╔══██╗ ██║ ██╔═══██╗████╗  ██║',
   ' ██║   ██║██████╔╝ ██║ ██║   ██║██╔██╗ ██║',
   ' ██║   ██║██╔══██╗ ██║ ██║   ██║██║╚██╗██║',
@@ -23,7 +23,7 @@ export function AsciiArt() {
       className="select-none"
       aria-hidden="true"
     >
-      <pre className="overflow-x-auto font-mono text-[10px] leading-tight text-primary sm:text-xs md:text-sm lg:text-base scrollbar-hide">
+      <pre className="overflow-x-auto font-mono text-[8px] leading-tight text-primary sm:text-xs md:text-sm lg:text-base scrollbar-hide">
         {ORION_LINES.map((line, i) => (
           <motion.div
             key={i}

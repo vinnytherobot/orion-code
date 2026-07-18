@@ -1,5 +1,6 @@
 import { Box, Text, useInput } from 'ink';
 import React, { useState } from 'react';
+import { theme } from '../theme.js';
 
 export interface SelectOption {
   label: string;
@@ -35,25 +36,27 @@ export function SelectMenu({ title, options, onSelect, onCancel }: SelectMenuPro
   });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="cyan" padding={1}>
-      <Text bold color="cyan">{title}</Text>
-      <Box flexDirection="column" marginTop={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.secondary} padding={1} marginTop={1}>
+      <Text bold color={theme.secondary}>
+        {title}
+      </Text>
+      <Box flexDirection="column" marginTop={1} gap={0}>
         {options.map((option, index) => (
-          <Box key={option.value} paddingY={0}>
-            <Text color={index === selectedIndex ? 'cyan' : 'white'}>
-              {index === selectedIndex ? '> ' : '  '}
+          <Box key={option.value} gap={1}>
+            <Text color={index === selectedIndex ? theme.secondary : theme.textDim}>
+              {index === selectedIndex ? '◉' : '○'}
             </Text>
-            <Text bold color={index === selectedIndex ? 'cyan' : 'white'}>
+            <Text bold color={index === selectedIndex ? theme.textBright : theme.text}>
               {option.label}
             </Text>
             {option.description && (
-              <Text color="gray"> - {option.description}</Text>
+              <Text color={theme.textDim}>- {option.description}</Text>
             )}
           </Box>
         ))}
       </Box>
-      <Box marginTop={1}>
-        <Text color="gray" dimColor>[Up/Down] Navigate  [Enter] Select  [Esc] Cancel</Text>
+      <Box marginTop={1} borderTop borderColor={theme.surfaceBorder} paddingTop={1}>
+        <Text color={theme.textDim}>↑↓ Navigate · Enter Select · Esc Cancel</Text>
       </Box>
     </Box>
   );

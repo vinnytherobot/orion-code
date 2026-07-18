@@ -1,6 +1,7 @@
 ﻿import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { useState } from 'react';
+import { theme } from '../theme.js';
 
 interface InputPromptProps {
   title: string;
@@ -20,9 +21,16 @@ export function InputPrompt({ title, placeholder, masked, onSubmit, onCancel }: 
   });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="cyan" padding={1}>
-      <Text bold color="cyan">{title}</Text>
-      <Box marginTop={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.secondary} padding={1} marginTop={1}>
+      <Text bold color={theme.secondary}>
+        {title}
+      </Text>
+      <Box marginTop={1} paddingX={1}>
+        {masked && (
+          <Text color={theme.warning} bold>
+            ◆{' '}
+          </Text>
+        )}
         <TextInput
           value={value}
           onChange={setValue}
@@ -31,8 +39,8 @@ export function InputPrompt({ title, placeholder, masked, onSubmit, onCancel }: 
           mask={masked ? '*' : undefined}
         />
       </Box>
-      <Box marginTop={1}>
-        <Text color="gray" dimColor>[Enter] Submit  [Esc] Cancel</Text>
+      <Box marginTop={1} borderTop borderColor={theme.surfaceBorder} paddingTop={1}>
+        <Text color={theme.textDim}>Enter Submit · Esc Cancel</Text>
       </Box>
     </Box>
   );

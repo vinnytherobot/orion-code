@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppDeps } from '../container.js';
 
 export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDeps) {
-  const { orchestrator } = deps;
+  const { orchestrator, taskRepository: taskRepo } = deps;
 
   fastify.post('/api/projects/:projectId/orchestration/execute', async (request, reply) => {
     const { tasks } = request.body as { tasks: any[] };
@@ -16,10 +16,14 @@ export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDep
 
   fastify.get('/api/projects/:projectId/orchestration/status', async (_request, reply) => {
     const agents = await orchestrator.getAvailableAgents();
-    const nextTask = await orchestrator.getNextTask();
+    const allTasks = await taskRepo.findAll();
+    const runningAgents = agents.length;
+    const pendingTasks = allTasks.filter(t => t.toJSON().status.value === 'pending').length;
+    const completedTasks = allTasks.filter(t => t.toJSON().status.value === 'completed').length;
     return reply.send({
-      success: true,
-      data: { availableAgents: agents.length, nextTask: nextTask ?? undefined },
+      runningAgents,
+      pendingTasks,
+      completedTasks,
     });
   });
 

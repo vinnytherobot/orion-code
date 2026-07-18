@@ -70,12 +70,16 @@ interface TaskResponse {
 interface TaskListResponse {
   tasks: Array<{
     id: string;
+    projectId: string;
     title: string;
     description: string;
     status: string;
-    priority: string;
-    assignedAgent?: string;
+    assignedAgentId?: string;
+    parentTaskId?: string;
+    dependencies: string[];
+    result?: string;
     createdAt: string;
+    updatedAt: string;
   }>;
 }
 
@@ -84,7 +88,7 @@ interface TaskStatsResponse {
 }
 
 interface AgentResponse {
-  agent: { id: string; name: string; status: string };
+  agent: { id: string; name: string; role: string; status: string };
 }
 
 interface AgentListResponse {
@@ -339,10 +343,10 @@ class ApiClient {
     return this.request<TaskListResponse>(`/api/tasks${query}`);
   }
 
-  async createTask(projectId: string, title: string, description: string, priority?: string) {
+  async createTask(projectId: string, title: string, description: string) {
     return this.request<TaskResponse>('/api/tasks', {
       method: 'POST',
-      body: JSON.stringify({ projectId, title, description, priority: priority || 'medium' }),
+      body: JSON.stringify({ projectId, title, description }),
     });
   }
 

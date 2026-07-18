@@ -26,14 +26,14 @@ export function Stats() {
       ];
 
   return (
-    <section className="border-t border-border bg-background py-24">
+    <section className="border-t border-border bg-background py-16 sm:py-24">
       <div className="container">
         <ScrollReveal>
           <div className="mx-auto mb-16 max-w-2xl text-center">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">
               GitHub Stats
             </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-4xl">
               Live from the repository.
             </h2>
             <p className="mt-4 text-muted-foreground">
@@ -46,7 +46,7 @@ export function Stats() {
           {stats.map((stat) => (
             <StaggerItem key={stat.label}>
               <TiltCard className="rounded-xl border border-border bg-card">
-                <div className="relative overflow-hidden rounded-xl p-6 text-center transition-colors hover:border-primary/40">
+                <div className="relative overflow-hidden rounded-xl p-4 sm:p-6 text-center transition-colors hover:border-primary/40">
                   <div
                     className="pointer-events-none absolute inset-0 -z-10 opacity-60"
                     style={{
@@ -56,7 +56,7 @@ export function Stats() {
                     aria-hidden="true"
                   />
                   <stat.icon className="mx-auto mb-3 h-5 w-5 text-primary" />
-                  <div className="text-5xl font-semibold tracking-tight text-primary sm:text-6xl">
+                  <div className="text-4xl font-semibold tracking-tight text-primary sm:text-5xl lg:text-6xl">
                     {github.loading ? (
                       <span className="inline-block h-12 w-20 animate-pulse rounded bg-primary/20" />
                     ) : (
