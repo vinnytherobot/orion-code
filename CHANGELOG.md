@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@orion/application` - Use cases (AnalyzeProject, Plan, Implement) and Ports
 - `@orion/infrastructure` - Database (Drizzle ORM), Providers (Ollama), Cache, Orchestration
 - `@orion/backend` - Fastify 5 API server (Auth, Projects, Tasks, Agents, Orchestration routes)
-- `@orion/frontend` - TUI interface with Ink 5/React 18 (Interactive commands, API client, Token storage)
+- `@orion/tui` - TUI interface with Ink 5/React 18 (Interactive commands, API client, Token storage)
 - `@orion/landing` - Landing page with React + Vite + Tailwind CSS
 
 ### Infrastructure

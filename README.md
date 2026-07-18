@@ -89,7 +89,7 @@ npm run dev
 
 ```bash
 # Start the TUI
-npm run dev:frontend
+npm run dev:tui
 
 # Start the backend API
 npm run dev:backend
@@ -106,7 +106,7 @@ npm run dev:landing
 orion-code/
 ├── apps/
 │   ├── backend/          # Fastify API server
-│   ├── frontend/         # TUI interface (Ink/React)
+│   ├── tui/              # TUI interface (Ink/React)
 │   └── landing/          # Landing page (React + Vite + Tailwind)
 ├── packages/
 │   ├── shared/           # Shared utilities (Result, AppError, Logger, Config)
@@ -246,7 +246,7 @@ npm run dev
 |--------|-------------|
 | `npm run build` | Build all packages |
 | `npm run dev` | Watch mode for all packages |
-| `npm run dev:frontend` | Watch frontend only |
+| `npm run dev:tui` | Watch TUI only |
 | `npm run dev:backend` | Watch backend only |
 | `npm run dev:landing` | Watch landing page only |
 | `npm run lint` | Run Biome linter |
@@ -312,6 +312,8 @@ npm run docker:build
 
 ### LLM Providers
 - Ollama (local inference, free)
+- OpenAI (GPT-4, GPT-4o, etc.)
+- Anthropic (Claude)
 
 ## Contributing
 

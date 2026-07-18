@@ -310,24 +310,15 @@ Pending → Planning → Running → Waiting → Review → Testing → Complete
 
 ## Model Selection
 
-All agents currently use the same model via Ollama (free, local inference):
+All agents use the configured LLM provider. Supported providers:
 
-| Agent | Default Model |
-|-------|---------------|
-| Planner | llama3 |
-| Architect | llama3 |
-| Backend | llama3 |
-| Database | llama3 |
-| Frontend | llama3 |
-| QA | llama3 |
-| Reviewer | llama3 |
-| DevOps | llama3 |
-| Security | llama3 |
-| Performance | llama3 |
-| Git | llama3 |
-| Documentation | llama3 |
+| Provider | Models | Cost |
+|----------|--------|------|
+| Ollama | llama3 (default) | Free (local inference) |
+| OpenAI | GPT-4, GPT-4o, etc. | Pay per token |
+| Anthropic | Claude | Pay per token |
 
-> **Note:** Future versions may support per-agent model configuration via Ollama or external providers (OpenAI, Anthropic). The current MVP uses `llama3` for all agents to keep costs at $0.
+> **Note:** The provider is configured via the TUI `/config` command or environment variables. The current default is `llama3` via Ollama for $0 cost. Per-agent model configuration is planned for future versions.
 
 ---
 

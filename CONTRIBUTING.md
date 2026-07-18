@@ -80,7 +80,7 @@ npm run dev
 |--------|-------------|
 | `npm run build` | Build all packages |
 | `npm run dev` | Watch mode for development |
-| `npm run dev:frontend` | Watch frontend (TUI) only |
+| `npm run dev:tui` | Watch TUI only |
 | `npm run dev:backend` | Watch backend only |
 | `npm run dev:landing` | Watch landing page only |
 | `npm run lint` | Run Biome linter |
@@ -102,7 +102,7 @@ npm run dev
 orion-code/
 ├── apps/
 │   ├── backend/          # Fastify API server
-│   ├── frontend/         # TUI interface (Ink/React)
+│   ├── tui/              # TUI interface (Ink/React)
 │   └── landing/          # Landing page (React + Vite + Tailwind)
 ├── packages/
 │   ├── shared/           # Shared utilities (Result, AppError, Logger, Config)
@@ -146,7 +146,7 @@ apps (depends on application + infrastructure)
 | `@orion/application` | Use cases (AnalyzeProject, Plan, Implement) |
 | `@orion/infrastructure` | Database, LLM providers, cache, orchestration |
 | `@orion/backend` | Fastify API server with JWT auth |
-| `@orion/frontend` | TUI interface with Ink/React |
+| `@orion/tui` | TUI interface with Ink/React |
 | `@orion/landing` | Landing page with React + Vite + Tailwind |
 
 ## Coding Standards
