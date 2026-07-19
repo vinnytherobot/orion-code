@@ -317,6 +317,7 @@ All agents use the configured LLM provider. Supported providers:
 | Ollama | llama3 (default) | Free (local inference) |
 | OpenAI | GPT-4, GPT-4o, etc. | Pay per token |
 | Anthropic | Claude | Pay per token |
+| Groq | Mixtral, Llama, Gemma | Pay per token (fast inference) |
 
 > **Note:** The provider is configured via the TUI `/config` command or environment variables. The current default is `llama3` via Ollama for $0 cost. Per-agent model configuration is planned for future versions.
 

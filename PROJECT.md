@@ -336,11 +336,12 @@ Responsible for:
 
 Responsible for:
 
-- Prisma
+- Drizzle ORM
 - migrations
 - schemas
 - indexes
 - seeds
+- query optimization
 
 ---
 

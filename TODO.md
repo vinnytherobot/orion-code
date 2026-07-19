@@ -1,0 +1,3 @@
+- Fix task bugs
+- Create Chat mode (chat with the tech lead of agents)
+- Add vertical scrollbar for long message history

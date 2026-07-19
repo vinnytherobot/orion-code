@@ -28,6 +28,7 @@ Orion Code is a multi-agent orchestration system that acts as a virtual Tech Lea
 
 - **Interactive TUI** - Beautiful terminal interface with Ink 5/React 18
 - **Multi-Agent Orchestration** - AI-powered task orchestration via Ollama (free, local)
+- **Inline Bash Mode** - Execute shell commands directly from TUI with `!` prefix
 - **DDD Architecture** - Clean, maintainable codebase with Domain-Driven Design
 - **REST API Backend** - Fastify 5-based backend with JWT + API Key authentication
 - **Persistent Login** - Tokens persist on device until explicit logout
@@ -223,6 +224,13 @@ apps (depends on application + infrastructure)
 | `/clear` | Clear screen |
 | `/exit` | Exit TUI |
 
+### Bash Mode
+
+| Command | Description |
+|---------|-------------|
+| `!<command>` | Execute shell command directly from TUI |
+| `!` (toggle) | Toggle bash mode on/off |
+
 ## Development
 
 ### Setup
@@ -314,6 +322,7 @@ npm run docker:build
 - Ollama (local inference, free)
 - OpenAI (GPT-4, GPT-4o, etc.)
 - Anthropic (Claude)
+- Groq (fast inference)
 
 ## Contributing
 

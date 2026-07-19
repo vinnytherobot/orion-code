@@ -7,9 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Inline Bash Mode: execute shell commands directly from TUI with `!` prefix
+- `!` key binding to toggle bash mode on/off
+- Shell execution utility for running commands with output capture
+- Groq provider support (alternative to Ollama/OpenAI/Anthropic)
+- Session expiry handling with graceful re-authentication flow
+
+### Fixed
+- Screen shake when typing with existing messages in TUI (terminalHeight - 1 fix)
+- Landing page layout breakage on 375x667 (small mobile) screens
+- Removed double padding wrapper in BashMode component
+- TUI shake prevention using Ink clearTerminal height adjustment
+
 ### Changed
 - Renamed project from "Orion TUI" to "Orion Code"
 - Updated repository URL to https://github.com/vinnytherobot/orion-code.git
+- TUI layout improvements with inline bash mode color changes
+- Landing page Features section translated to English
+- Removed `apps/frontend/` from git tracking
+- Removed `docs/` from git tracking
 
 ### Added
 - Orchestration MVP: Orchestrator, AgentExecutor, MessageBus, PostgreSQL persistence
