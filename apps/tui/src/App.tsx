@@ -1,6 +1,7 @@
 import { Box, useApp } from 'ink';
 import type React from 'react';
 import { useCallback, useState } from 'react';
+import { BashMode } from './components/BashMode.js';
 import { InputPrompt } from './components/InputPrompt.js';
 import { MessageHistory } from './components/MessageHistory.js';
 import { PromptInput } from './components/PromptInput.js';
@@ -21,6 +22,7 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
   const [agents] = useState<Agent[]>([]);
   const [_tasks] = useState<Task[]>([]);
   const [interactiveMenu, setInteractiveMenu] = useState<InteractiveCommand | null>(null);
+  const [isBashMode, setIsBashMode] = useState(false);
 
   const activeAgentCount = agents.filter((a) => a.status === 'running').length;
 
@@ -71,6 +73,14 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
     setInteractiveMenu(null);
     addMessage('system', 'Cancelled.');
   }, [addMessage]);
+
+  const toggleBashMode = useCallback(() => {
+    setIsBashMode(prev => !prev);
+  }, []);
+
+  const exitBashMode = useCallback(() => {
+    setIsBashMode(false);
+  }, []);
 
   const handleSubmit = useCallback(
     async (input: string) => {
@@ -144,11 +154,19 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
     }
   }
 
+  if (isBashMode) {
+    return (
+      <Box flexDirection="column" paddingX={1} paddingY={1}>
+        <BashMode onExit={exitBashMode} />
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <WelcomeScreen model={model} directory={process.cwd()} />
       {messages.length > 0 && <MessageHistory messages={messages} />}
-      <PromptInput onSubmit={handleSubmit} />
+      <PromptInput onSubmit={handleSubmit} onToggleBash={toggleBashMode} />
       <StatusBar model={model} agentCount={activeAgentCount || agentCount} />
     </Box>
   );
