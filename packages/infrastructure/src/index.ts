@@ -1,4 +1,4 @@
-﻿// Providers
+// Providers
 export type {
   ILLMProvider,
   LLMMessage,
@@ -8,6 +8,7 @@ export type {
 export { OpenAIProvider } from './providers/OpenAIProvider.js';
 export { AnthropicProvider } from './providers/AnthropicProvider.js';
 export { OllamaProvider } from './providers/OllamaProvider.js';
+export { GroqProvider } from './providers/GroqProvider.js';
 export { ProviderAdapter } from './adapters/ProviderAdapter.js';
 export {
   PROVIDER_CATALOG,
