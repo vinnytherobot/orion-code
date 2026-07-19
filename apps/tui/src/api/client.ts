@@ -22,6 +22,7 @@ const API_BASE = getApiUrl();
 interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
+  sessionExpired?: boolean;
 }
 
 interface TokenResponse {
@@ -194,23 +195,25 @@ class ApiClient {
         headers,
       });
 
-      if (response.status === 401 && this.refreshToken) {
-        const refreshed = await this.refreshTokens();
-        if (refreshed) {
-          headers.Authorization = `Bearer ${this.accessToken}`;
-          const retryResponse = await fetch(`${this.baseUrl}${path}`, {
-            ...options,
-            headers,
-          });
-          const retryData = (await retryResponse.json()) as Record<string, unknown>;
-          if (!retryResponse.ok) {
-            return { error: this.formatError(retryData.error) };
+      if (response.status === 401) {
+        if (this.refreshToken) {
+          const refreshed = await this.refreshTokens();
+          if (refreshed) {
+            headers.Authorization = `Bearer ${this.accessToken}`;
+            const retryResponse = await fetch(`${this.baseUrl}${path}`, {
+              ...options,
+              headers,
+            });
+            const retryData = (await retryResponse.json()) as Record<string, unknown>;
+            if (!retryResponse.ok) {
+              return { error: this.formatError(retryData.error) };
+            }
+            return { data: retryData as T };
           }
-          return { data: retryData as T };
+          // Refresh failed - clear tokens and signal session expired
+          this.clearTokens();
         }
-        // Refresh failed - clear tokens
-        this.clearTokens();
-        return { error: 'Session expired. Please login again with /login.' };
+        return { sessionExpired: true } as ApiResponse<T>;
       }
 
       const data = (await response.json()) as Record<string, unknown>;
@@ -423,10 +426,10 @@ class ApiClient {
     return this.request<ProviderResponse>('/api/provider');
   }
 
-  async setProvider(name: string, apiKey?: string) {
+  async setProvider(name: string, apiKey?: string, model?: string) {
     return this.request<ProviderResponse>('/api/provider', {
       method: 'POST',
-      body: JSON.stringify({ provider: name, apiKey }),
+      body: JSON.stringify({ provider: name, apiKey, model }),
     });
   }
 

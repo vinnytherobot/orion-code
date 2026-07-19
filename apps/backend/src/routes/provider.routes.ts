@@ -13,14 +13,14 @@ export async function providerRoutes(app: FastifyInstance, providerUseCase: Prov
   });
 
   app.post('/api/provider', async (request, reply) => {
-    const { provider: name, apiKey } = request.body as { provider: string; apiKey?: string };
+    const { provider: name, apiKey, model } = request.body as { provider: string; apiKey?: string; model?: string };
 
     if (!name) {
       return reply.status(400).send({ error: 'provider name is required' });
     }
 
     try {
-      const provider = await providerUseCase.switchProvider(name, apiKey);
+      const provider = await providerUseCase.switchProvider(name, apiKey, model);
       return reply.send({ success: true, provider });
     } catch (error) {
       return reply.status(400).send({ error: error instanceof Error ? error.message : 'Failed to switch provider' });

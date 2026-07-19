@@ -10,5 +10,5 @@ export interface ProviderInfo {
 export interface IProviderPort {
   getAvailableProviders(): ProviderInfo[];
   getCurrentProvider(): { name: string; model: string };
-  switchProvider(name: string, apiKey?: string): Promise<{ name: string; model: string }>;
+  switchProvider(name: string, apiKey?: string, model?: string): Promise<{ name: string; model: string }>;
 }

@@ -27,7 +27,7 @@ export class ProviderAdapter implements IProviderPort {
     };
   }
 
-  async switchProvider(name: string, apiKey?: string): Promise<{ name: string; model: string }> {
+  async switchProvider(name: string, apiKey?: string, model?: string): Promise<{ name: string; model: string }> {
     const info = getProviderInfo(name);
     if (!info) {
       throw new Error(`Provider '${name}' not found`);
@@ -43,7 +43,7 @@ export class ProviderAdapter implements IProviderPort {
     const config: LLMProviderConfig = {
       apiKey: apiKey || getProviderApiKey(name) || 'ollama',
       baseUrl: info.defaultBaseUrl,
-      model: info.defaultModel,
+      model: model || info.defaultModel,
     };
 
     const provider = createProvider(name, config);

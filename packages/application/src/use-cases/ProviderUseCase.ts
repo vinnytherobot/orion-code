@@ -11,7 +11,7 @@ export class ProviderUseCase {
     return this.providerPort.getCurrentProvider();
   }
 
-  async switchProvider(name: string, apiKey?: string): Promise<{ name: string; model: string }> {
-    return this.providerPort.switchProvider(name, apiKey);
+  async switchProvider(name: string, apiKey?: string, model?: string): Promise<{ name: string; model: string }> {
+    return this.providerPort.switchProvider(name, apiKey, model);
   }
 }
