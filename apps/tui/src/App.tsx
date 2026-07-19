@@ -155,11 +155,7 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
   }
 
   if (isBashMode) {
-    return (
-      <Box flexDirection="column" paddingX={1} paddingY={1}>
-        <BashMode onExit={exitBashMode} />
-      </Box>
-    );
+    return <BashMode onExit={exitBashMode} />;
   }
 
   return (
