@@ -7,9 +7,10 @@ import { getCommandSuggestions } from '../utils/commands.js';
 
 interface PromptInputProps {
   onSubmit: (input: string) => void;
+  onToggleBash?: () => void;
 }
 
-export function PromptInput({ onSubmit }: PromptInputProps): React.ReactElement {
+export function PromptInput({ onSubmit, onToggleBash }: PromptInputProps): React.ReactElement {
   const [input, setInput] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -96,6 +97,11 @@ export function PromptInput({ onSubmit }: PromptInputProps): React.ReactElement 
         setInput(history[newIndex] || '');
       }
       setSuggestions([]);
+    }
+
+    if (_inputChar === '!' && !input) {
+      onToggleBash?.();
+      return;
     }
   });
 
