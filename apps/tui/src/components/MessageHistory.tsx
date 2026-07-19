@@ -29,7 +29,7 @@ export function MessageHistory({ messages = [] }: MessageHistoryProps): React.Re
   }
 
   return (
-    <Box flexDirection="column" paddingX={1} marginTop={1} gap={1} flexGrow={1} flexShrink={1} width="100%">
+    <Box flexDirection="column" paddingX={1} marginTop={1} gap={1} width="100%">
       {messages.map((msg) => {
         const config = ROLE_CONFIG[msg.role];
         return (
