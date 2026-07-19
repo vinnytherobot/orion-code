@@ -37,7 +37,9 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
   const [interactiveMenu, setInteractiveMenu] = useState<InteractiveCommand | null>(null);
   const [scrollOffset, setScrollOffset] = useState(0); // 0 = bottom, positive = scrolled up
 
-  const terminalHeight = stdout.rows ?? 24;
+  // Use terminalHeight - 1 to avoid Ink's clearTerminal branch which causes
+  // screen shake on every keystroke when outputHeight >= stdout.rows
+  const terminalHeight = (stdout.rows ?? 24) - 1;
   const terminalWidth = stdout.columns ?? 80;
 
   const activeAgentCount = agents.filter((a) => a.status === 'running').length;
