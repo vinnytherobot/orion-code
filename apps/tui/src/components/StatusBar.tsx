@@ -5,11 +5,13 @@ import { theme } from '../theme.js';
 interface StatusBarProps {
   model?: string;
   agentCount?: number;
+  historyHint?: { showHint: boolean; count: number };
 }
 
 export function StatusBar({
   model = 'not-set',
   agentCount = 0,
+  historyHint,
 }: StatusBarProps): React.ReactElement {
   return (
     <Box
@@ -23,6 +25,12 @@ export function StatusBar({
       <Box gap={1}>
         <Text color={theme.textDim}>⌘</Text>
         <Text color={theme.textDim}>/ for commands</Text>
+        {historyHint?.showHint && (
+          <>
+            <Text color={theme.surfaceBorderLight}>│</Text>
+            <Text color={theme.textDim}>↑↓ history ({historyHint.count})</Text>
+          </>
+        )}
       </Box>
       <Box gap={1}>
         <Text color={theme.textDim}>●</Text>

@@ -13,12 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shell execution utility for running commands with output capture
 - Groq provider support (alternative to Ollama/OpenAI/Anthropic)
 - Session expiry handling with graceful re-authentication flow
+- Mouse wheel scroll support for TUI message history (`useMouseScroll` hook)
+- Command history hint rendered inside StatusBar (replaces inline hint below input)
+- Orchestration database tables: projects, agents, tasks, execution_logs with enums and indexes
+- Docker CMD now runs migrations before starting the server
 
 ### Fixed
 - Screen shake when typing with existing messages in TUI (terminalHeight - 1 fix)
 - Landing page layout breakage on 375x667 (small mobile) screens
 - Removed double padding wrapper in BashMode component
 - TUI shake prevention using Ink clearTerminal height adjustment
+- Stacked "Processing..." messages in multi-step interactive commands replaced instead of appended
+- PromptInput refactored from `ink-text-input` to native cursor-aware input with inline cursor rendering
+- History hint moved from PromptInput to StatusBar to keep input box height stable
 
 ### Changed
 - Renamed project from "Orion TUI" to "Orion Code"
@@ -27,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Landing page Features section translated to English
 - Removed `apps/frontend/` from git tracking
 - Removed `docs/` from git tracking
+- TUI scroll system simplified: fixed per-message row estimate with slice-based visibility
+- StatusBar accepts `historyHint` prop to render command history hint inline
+- PromptInput uses `onHistoryHintChange` callback to report hint state to parent
 
 ### Added
 - Orchestration MVP: Orchestrator, AgentExecutor, MessageBus, PostgreSQL persistence

@@ -56,4 +56,5 @@ EXPOSE 3000
 
 ENV NODE_ENV=production
 
-CMD ["node", "apps/backend/dist/index.js"]
+# Run migrations then start the server
+CMD ["sh", "-c", "node packages/infrastructure/dist/db/migrate.js && node apps/backend/dist/index.js"]

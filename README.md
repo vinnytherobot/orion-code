@@ -27,6 +27,7 @@ Orion Code is a multi-agent orchestration system that acts as a virtual Tech Lea
 ## Features
 
 - **Interactive TUI** - Beautiful terminal interface with Ink 5/React 18
+- **Mouse Wheel Scroll** - Scroll message history with mouse wheel or Page Up/Down
 - **Multi-Agent Orchestration** - AI-powered task orchestration via Ollama (free, local)
 - **Inline Bash Mode** - Execute shell commands directly from TUI with `!` prefix
 - **DDD Architecture** - Clean, maintainable codebase with Domain-Driven Design
