@@ -17,9 +17,32 @@ interface AppProps {
   agentCount?: number;
 }
 
-// Each message box takes ~7 rows: border-top(1) + header(1) + gap(1) + content(1+) + border-bottom(1) + gap(1)
-const ROWS_PER_MESSAGE = 7;
-const SCROLL_STEP = 3;
+// Fixed vertical overhead of a single message box: border-top(1) + header(1) +
+// header-margin(1) + border-bottom(1). Content rows are measured per message.
+const MESSAGE_BOX_OVERHEAD = 4;
+// Vertical gap between consecutive message boxes (MessageHistory `gap`).
+const MESSAGE_GAP = 1;
+// Root `marginTop` of the MessageHistory list (used when computing scroll bounds).
+const MESSAGE_LIST_MARGIN_TOP = 1;
+// Wheel / step scroll amount in rows.
+const SCROLL_STEP_ROWS = 4;
+
+// Estimate how many terminal rows a message's content occupies after wrapping
+// within the message box. Mirrors MessageHistory's inner text width:
+// terminalWidth - list padding(2) - border(2) - box padding(2).
+function estimateContentRows(text: string, terminalWidth: number): number {
+  const contentWidth = Math.max(1, terminalWidth - 6);
+  if (!text) return 1;
+  let rows = 0;
+  for (const line of text.split('\n')) {
+    rows += Math.max(1, Math.ceil((line || ' ').length / contentWidth));
+  }
+  return rows;
+}
+
+function messageRows(msg: Message, terminalWidth: number): number {
+  return MESSAGE_BOX_OVERHEAD + estimateContentRows(msg.content, terminalWidth);
+}
 
 export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.ReactElement {
   const { exit } = useApp();
@@ -36,42 +59,71 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
 
   const activeAgentCount = agents.filter((a) => a.status === 'running').length;
 
-  // Estimate message area rows for scroll calculation
-  // Use max possible prompt height so scroll count stays stable
+  // Estimate message area rows for scroll calculation.
+  // Use max possible prompt height so the available area stays stable.
   const fixedTopBottom = 14 + 3 + 3; // welcome + prompt(max) + status
   const messageAreaHeight = Math.max(3, terminalHeight - fixedTopBottom);
 
-  // How many messages can fit in the visible area
-  const visibleCount = Math.max(1, Math.floor(messageAreaHeight / ROWS_PER_MESSAGE));
-
-  // Slice messages based on scroll offset
-  // scrollOffset=0 means show the last `visibleCount` messages
+  // Measure every message so the slice respects real (wrapped) heights instead
+  // of assuming a fixed height per message.
+  const rowHeights = messages.map((msg) => messageRows(msg, terminalWidth));
   const totalMessages = messages.length;
-  const maxScroll = Math.max(0, totalMessages - visibleCount);
-  const effectiveOffset = Math.min(scrollOffset, maxScroll);
-  const startIndex = Math.max(0, totalMessages - visibleCount - effectiveOffset);
-  const visibleMessages = messages.slice(startIndex, startIndex + visibleCount + 1); // +1 so partial messages can show
+  // Total rows the whole list would occupy, including gaps between messages.
+  const totalListRows =
+    rowHeights.reduce((sum, rows) => sum + rows, 0) +
+    MESSAGE_GAP * Math.max(0, totalMessages - 1) +
+    MESSAGE_LIST_MARGIN_TOP;
 
-  const hasMoreAbove = effectiveOffset < maxScroll;
+  // scrollOffset is in rows (0 = showing the newest message at the bottom).
+  const maxScrollRows = Math.max(0, totalListRows - messageAreaHeight);
+  const effectiveOffset = Math.min(scrollOffset, maxScrollRows);
+
+  // Walk messages from the bottom, including as many as fit in the viewport.
+  // scrollOffset > 0 shifts the window upward; the newest message is always
+  // considered first so it can never be pushed out of view.
+  let startIndex = totalMessages;
+  let remaining = messageAreaHeight + effectiveOffset;
+  for (let i = totalMessages - 1; i >= 0; i--) {
+    if (remaining <= 0) break;
+    if (remaining < rowHeights[i]! + MESSAGE_GAP) {
+      // Only a partial top message fits; include it (its top edge is clipped).
+      startIndex = i;
+      break;
+    }
+    remaining -= rowHeights[i]! + MESSAGE_GAP;
+    startIndex = i;
+  }
+  // Clamp so we never slice past the array bounds.
+  startIndex = Math.max(0, startIndex);
+  const visibleMessages = messages.slice(startIndex);
+
+  const hasMoreAbove = effectiveOffset < maxScrollRows;
   const hasMoreBelow = effectiveOffset > 0;
 
-  // Auto-scroll to bottom when new messages arrive (only if already at bottom)
+  // Auto-scroll to bottom when new messages arrive (only if already at bottom).
   useEffect(() => {
     if (scrollOffset === 0) {
       setScrollOffset(0);
     }
   }, [messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleScrollUpPage = useCallback(() => {
+    setScrollOffset((prev) => Math.min(maxScrollRows, prev + messageAreaHeight));
+  }, [maxScrollRows, messageAreaHeight]);
+
+  const handleScrollDownPage = useCallback(() => {
+    setScrollOffset((prev) => Math.max(0, prev - messageAreaHeight));
+  }, [messageAreaHeight]);
+
   const handleScrollUp = useCallback(() => {
-    setScrollOffset((prev) => Math.min(maxScroll, prev + SCROLL_STEP));
-  }, [maxScroll]);
+    setScrollOffset((prev) => Math.min(maxScrollRows, prev + SCROLL_STEP_ROWS));
+  }, [maxScrollRows]);
 
   const handleScrollDown = useCallback(() => {
-    setScrollOffset((prev) => Math.max(0, prev - SCROLL_STEP));
+    setScrollOffset((prev) => Math.max(0, prev - SCROLL_STEP_ROWS));
   }, []);
 
-  // Mouse wheel support: route scroll-wheel events to the same handlers
-  // used by PageUp/PageDown so the user can scroll with the mouse too.
+  // Mouse wheel support: finer step than PageUp/PageDown.
   useMouseScroll({ onScrollUp: handleScrollUp, onScrollDown: handleScrollDown });
 
   const addMessage = useCallback((role: Message['role'], content: string, agent?: Agent) => {
@@ -268,7 +320,7 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
         )}
       </Box>
       <Box flexShrink={0} width="100%">
-        <PromptInput onSubmit={handleSubmit} onScrollUp={handleScrollUp} onScrollDown={handleScrollDown} onHistoryHintChange={setHistoryHint} />
+        <PromptInput onSubmit={handleSubmit} onScrollUp={handleScrollUpPage} onScrollDown={handleScrollDownPage} onHistoryHintChange={setHistoryHint} />
       </Box>
       <Box flexShrink={0} width="100%">
         <StatusBar model={model} agentCount={activeAgentCount || agentCount} historyHint={historyHint} />
