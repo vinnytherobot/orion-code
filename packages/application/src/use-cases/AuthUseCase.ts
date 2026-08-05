@@ -60,7 +60,7 @@ export class AuthUseCase {
         id: this.generateId(),
         userId: id.toString(),
         token: tokens.refreshToken,
-        expiresAt: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
       await this.refreshTokenRepository.save(refreshToken);
       if (this.uow) await this.uow.commit();
@@ -174,7 +174,7 @@ export class AuthUseCase {
 
   private generateTokens(userId: string): AuthTokens {
     const accessToken = this.jwtProvider.sign({ sub: userId, type: 'access' }, '1h');
-    const refreshToken = this.jwtProvider.sign({ sub: userId, type: 'refresh' }, '100y');
+    const refreshToken = this.jwtProvider.sign({ sub: userId, type: 'refresh' }, '30d');
     return { accessToken, refreshToken };
   }
 }

@@ -4,35 +4,43 @@ import type { AppDeps } from '../container.js';
 export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
   const { authUseCase } = deps;
 
-  app.post('/api/auth/register', async (request, reply) => {
-    const { name, email, password } = request.body as { name: string; email: string; password: string };
+  app.post(
+    '/api/auth/register',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const { name, email, password } = request.body as { name: string; email: string; password: string };
 
-    if (!name || !email || !password) {
-      return reply.status(400).send({ error: 'Name, email, and password are required' });
-    }
+      if (!name || !email || !password) {
+        return reply.status(400).send({ error: 'Name, email, and password are required' });
+      }
 
-    const result = await authUseCase.register({ name, email, password });
-    if (result.isFail()) {
-      return reply.status(400).send({ error: result.error.message });
-    }
+      const result = await authUseCase.register({ name, email, password });
+      if (result.isFail()) {
+        return reply.status(400).send({ error: result.error.message });
+      }
 
-    return reply.status(201).send({ user: result.value.user, tokens: result.value.tokens });
-  });
+      return reply.status(201).send({ user: result.value.user, tokens: result.value.tokens });
+    },
+  );
 
-  app.post('/api/auth/login', async (request, reply) => {
-    const { email, password } = request.body as { email: string; password: string };
+  app.post(
+    '/api/auth/login',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const { email, password } = request.body as { email: string; password: string };
 
-    if (!email || !password) {
-      return reply.status(400).send({ error: 'Email and password are required' });
-    }
+      if (!email || !password) {
+        return reply.status(400).send({ error: 'Email and password are required' });
+      }
 
-    const result = await authUseCase.login({ email, password });
-    if (result.isFail()) {
-      return reply.status(401).send({ error: result.error.message });
-    }
+      const result = await authUseCase.login({ email, password });
+      if (result.isFail()) {
+        return reply.status(401).send({ error: result.error.message });
+      }
 
-    return reply.send({ user: result.value.user, tokens: result.value.tokens });
-  });
+      return reply.send({ user: result.value.user, tokens: result.value.tokens });
+    },
+  );
 
   app.post('/api/auth/refresh', async (request, reply) => {
     const { refreshToken } = request.body as { refreshToken: string };

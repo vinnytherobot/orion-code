@@ -24,5 +24,5 @@ export const env = {
   HOST: getEnvVar('HOST', false) || '0.0.0.0',
   NODE_ENV: getEnvVar('NODE_ENV', false) || 'development',
   LOG_LEVEL: getEnvVar('LOG_LEVEL', false) || 'info',
-  CORS_ORIGIN: getEnvVar('CORS_ORIGIN', false) || '*',
+  CORS_ORIGIN: getEnvVar('CORS_ORIGIN', false) || 'http://localhost:5173,http://localhost:3000',
 } as const;
