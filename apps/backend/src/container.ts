@@ -9,9 +9,8 @@ import {
   RefreshTokenDomainRepository,
   ProjectDomainRepository,
   createProvider,
-  getCurrentProvider,
-  getProviderApiKey,
   getProviderInfo,
+  getEffectiveProviderConfig,
   AgentExecutor,
   Orchestrator,
   InMemoryEventBus,
@@ -101,15 +100,15 @@ export function buildDeps(jwtSecret: string): AppDeps {
   const eventBus = new InMemoryEventBus();
   const unitOfWork = createUnitOfWork();
   
-  // Load saved provider config
-  const savedProviderName = getCurrentProvider();
-  const savedApiKey = getProviderApiKey(savedProviderName);
-  const providerInfo = getProviderInfo(savedProviderName);
-  
-  const llmProvider = createProvider(savedProviderName, {
-    apiKey: savedApiKey || 'ollama',
-    baseUrl: providerInfo?.defaultBaseUrl || 'http://127.0.0.1:11434',
-    model: providerInfo?.defaultModel || 'llama3',
+  // Load provider config, preferring environment variables so Docker
+  // deployments work without plaintext home-file writes.
+  const effective = getEffectiveProviderConfig();
+  const providerInfo = getProviderInfo(effective.name);
+
+  const llmProvider = createProvider(effective.name, {
+    apiKey: effective.apiKey || 'ollama',
+    baseUrl: effective.baseUrl || providerInfo?.defaultBaseUrl || 'http://127.0.0.1:11434',
+    model: effective.model || providerInfo?.defaultModel || 'llama3',
   });
   
   const agentExecutor = new AgentExecutor(llmProvider);

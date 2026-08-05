@@ -25,7 +25,9 @@ export {
   setProviderApiKey,
   getProviderConfig,
   setProviderConfig,
+  getEffectiveProviderConfig,
 } from './providers/config.js';
+export type { EffectiveProviderConfig } from './providers/config.js';
 
 // Cache
 export { InMemoryCache } from './cache/InMemoryCache.js';
