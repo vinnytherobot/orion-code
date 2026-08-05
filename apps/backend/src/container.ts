@@ -16,6 +16,7 @@ import {
   Orchestrator,
   InMemoryEventBus,
   createUnitOfWork,
+  ExecutionLogRepository,
 } from '@orion/infrastructure';
 import {
   PlanUseCase,
@@ -147,6 +148,7 @@ export function buildDeps(jwtSecret: string): AppDeps {
     agentExecutor,
     undefined,
     eventBus,
+    new ExecutionLogRepository(),
   );
 
   return {

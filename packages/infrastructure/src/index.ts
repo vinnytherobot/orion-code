@@ -53,6 +53,7 @@ export type { AgentMessage } from './orchestration/MessageBus.js';
 export { AgentRepository } from './db/repositories/agent.repository.js';
 export { TaskRepository } from './db/repositories/task.repository.js';
 export { ProjectDomainRepository } from './db/repositories/project-domain.repository.js';
+export { ExecutionLogRepository } from './db/repositories/execution-log.repository.js';
 
 // Domain-Aware Auth Repositories
 export { UserDomainRepository } from './db/repositories/user-domain.repository.js';
