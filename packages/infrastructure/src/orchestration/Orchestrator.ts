@@ -1,9 +1,10 @@
 import type { IOrchestratorPort } from '@orion/application';
 import type { AgentResponseDTO, TaskResponseDTO } from '@orion/application';
+import type { ExecutePlanInput } from '@orion/application';
 import type { Result } from '@orion/shared';
 import { AppError, ok, fail } from '@orion/shared';
 import type { IAgentRepository, ITaskRepository, IDomainEventBus } from '@orion/domain';
-import { createTaskCompletedEvent } from '@orion/domain';
+import { Task, createTaskCompletedEvent } from '@orion/domain';
 import type { AgentExecutor } from './AgentExecutor.js';
 import type { ExecutionLogRepository } from '../db/repositories/execution-log.repository.js';
 import { EventEmitter } from 'node:events';
@@ -32,10 +33,22 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     super();
   }
 
-  async executePlan(_tasks: TaskResponseDTO[]): Promise<Result<void, AppError>> {
+  async executePlan(plan: ExecutePlanInput): Promise<Result<void, AppError>> {
+    // Seed the incoming tasks as pending, then let the queue pick them up.
+    // This makes POST .../orchestration/execute a complete, self-contained entry
+    // point for the canonical implementation flow.
+    for (const input of plan.tasks ?? []) {
+      const task = Task.create({
+        projectId: plan.projectId,
+        title: input.title,
+        description: input.description,
+      });
+      await this.taskRepo.save(task);
+    }
+
     // Start execution loop
     this.processQueue();
-    
+
     return ok(undefined);
   }
 

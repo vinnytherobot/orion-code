@@ -20,8 +20,6 @@ import {
 } from '@orion/infrastructure';
 import {
   PlanUseCase,
-  ImplementUseCase,
-  AnalyzeProjectUseCase,
   AuthUseCase,
   ProjectUseCase,
 } from '@orion/application';
@@ -31,8 +29,6 @@ import { ProviderUseCase } from '@orion/application';
 
 export type AppDeps = {
   planUseCase: PlanUseCase;
-  implementUseCase: ImplementUseCase;
-  analyzeProjectUseCase: AnalyzeProjectUseCase;
   projectUseCase: ProjectUseCase;
   authUseCase: AuthUseCase;
   orchestrator: Orchestrator;
@@ -122,14 +118,6 @@ export function buildDeps(jwtSecret: string): AppDeps {
   const jwtProvider = createJWTProvider(jwtSecret);
 
   const planUseCase = new PlanUseCase(taskRepository, unitOfWork);
-  const implementUseCase = new ImplementUseCase(
-    taskRepository,
-    agentRepository,
-    agentExecutor,
-    eventBus,
-    unitOfWork,
-  );
-  const analyzeProjectUseCase = new AnalyzeProjectUseCase(taskRepository);
   const projectUseCase = new ProjectUseCase(projectRepository);
   const authUseCase = new AuthUseCase(
     userRepository,
@@ -153,8 +141,6 @@ export function buildDeps(jwtSecret: string): AppDeps {
 
   return {
     planUseCase,
-    implementUseCase,
-    analyzeProjectUseCase,
     projectUseCase,
     authUseCase,
     orchestrator,
