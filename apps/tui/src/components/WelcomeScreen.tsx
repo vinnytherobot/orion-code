@@ -23,6 +23,7 @@ export function WelcomeScreen({
   ];
 
   const displayTips = tips || defaultTips;
+  const authenticated = apiClient.isAuthenticated();
 
   return (
     <Box flexDirection="column" paddingX={1} marginBottom={1} width="100%">
@@ -34,31 +35,43 @@ export function WelcomeScreen({
         </Box>
       </Box>
 
-      <Box borderStyle="round" borderColor={theme.surfaceBorderLight} paddingX={1} paddingY={0} flexDirection="column" width="100%">
-        <Box gap={1} marginBottom={1}>
-          <Text bold color={theme.secondary}>❯ Quick Start</Text>
-        </Box>
-        {displayTips.map((tip, index) => (
-          <Box key={index} gap={1}>
-            <Text color={theme.primaryDim}>┃</Text>
-            <Text color={theme.text}>{tip}</Text>
-          </Box>
-        ))}
-        <Box marginTop={1} borderTop borderColor={theme.surfaceBorder} paddingTop={1}>
-          <Box gap={1}>
-            <Text color={theme.textDim}>Model:</Text>
-            <Text color={theme.secondary}>{model}</Text>
-            <Text color={theme.textDim}>|</Text>
-            <Text color={theme.textDim}>Dir:</Text>
-            <Text color={theme.secondaryLight}>{directory}</Text>
+      {authenticated ? (
+        <Box borderStyle="round" borderColor={theme.surfaceBorderLight} paddingX={1} paddingY={0} flexDirection="column" width="100%">
+          <Box gap={1} justifyContent="space-between" width="100%">
+            <Box gap={1}>
+              <Text color={theme.textDim}>Model:</Text>
+              <Text color={theme.secondary}>{model}</Text>
+              <Text color={theme.textDim}>|</Text>
+              <Text color={theme.textDim}>Dir:</Text>
+              <Text color={theme.secondaryLight}>{directory}</Text>
+            </Box>
+            <Box>
+              <Text color={theme.success}>◆ Authenticated (persistent session)</Text>
+            </Box>
           </Box>
         </Box>
-        {apiClient.isAuthenticated() && (
-          <Box marginTop={1}>
-            <Text color={theme.success}>◆ Authenticated (persistent session)</Text>
+      ) : (
+        <Box borderStyle="round" borderColor={theme.surfaceBorderLight} paddingX={1} paddingY={0} flexDirection="column" width="100%">
+          <Box gap={1} marginBottom={1}>
+            <Text bold color={theme.secondary}>❯ Quick Start</Text>
           </Box>
-        )}
-      </Box>
+          {displayTips.map((tip, index) => (
+            <Box key={index} gap={1}>
+              <Text color={theme.primaryDim}>┃</Text>
+              <Text color={theme.text}>{tip}</Text>
+            </Box>
+          ))}
+          <Box marginTop={1} borderTop borderColor={theme.surfaceBorder} paddingTop={1}>
+            <Box gap={1}>
+              <Text color={theme.textDim}>Model:</Text>
+              <Text color={theme.secondary}>{model}</Text>
+              <Text color={theme.textDim}>|</Text>
+              <Text color={theme.textDim}>Dir:</Text>
+              <Text color={theme.secondaryLight}>{directory}</Text>
+            </Box>
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 }
