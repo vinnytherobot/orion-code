@@ -18,6 +18,20 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: orion-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   api:
     build:
       context: .
@@ -32,11 +46,18 @@ services:
       HOST: 0.0.0.0
       DATABASE_URL: postgresql://orion:orion@postgres:5432/orion
       JWT_SECRET: ${JWT_SECRET}
-      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # LLM provider: prefer an explicit provider via env over the local config file.
+      ORION_PROVIDER: ${ORION_PROVIDER:-ollama}
+      ORION_OLLAMA_BASE_URL: ${ORION_OLLAMA_BASE_URL:-http://ollama:11434}
+      ORION_PROVIDER_API_KEY: ${ORION_PROVIDER_API_KEY:-}
     depends_on:
       postgres:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
 
 volumes:
   postgres_data:
+  ollama_data:
