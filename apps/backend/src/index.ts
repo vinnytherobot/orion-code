@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 import { buildDeps } from './container.js';
 import { env } from './env.js';
+import { checkDatabaseHealth } from '@orion/infrastructure';
 import { agentRoutes } from './routes/agent.routes.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { orchestrationRoutes } from './routes/orchestration.routes.js';
@@ -94,8 +95,10 @@ async function main(): Promise<void> {
   await fastify.register((instance) => providerRoutes(instance, deps.providerUseCase));
 
   fastify.get('/api/health', async () => {
+    const dbHealthy = await checkDatabaseHealth();
     return {
-      status: 'ok',
+      status: dbHealthy ? 'ok' : 'degraded',
+      db: dbHealthy ? 'ok' : 'error',
       version: '0.1.0',
       timestamp: new Date().toISOString(),
     };

@@ -38,7 +38,7 @@ export { HistoryManager } from './filesystem/HistoryManager.js';
 export type { HistoryEntry } from './filesystem/HistoryManager.js';
 
 // Database
-export { getDatabase, resetDatabase } from './db/database.js';
+export { getDatabase, resetDatabase, checkDatabaseHealth } from './db/database.js';
 
 // Legacy Auth Repositories (to be migrated)
 export { UserRepository } from './db/repositories/user.repository.js';
