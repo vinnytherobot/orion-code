@@ -159,6 +159,16 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     const controller = new AbortController();
     this.runningExecutions.set(task.id, controller);
 
+    // Claim the task as "running" before the async execution so processQueue
+    // does not re-select the same pending task and spawn duplicate runs.
+    const claimTask = await this.taskRepo.findById(task.id);
+    if (claimTask) {
+      const started = claimTask.start();
+      if (!started.isFail()) {
+        await this.taskRepo.save(claimTask);
+      }
+    }
+
     this.emit('task:started', { taskId: task.id, agentId: agent.id });
 
     const startedAt = Date.now();
