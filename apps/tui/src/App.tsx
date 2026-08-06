@@ -1,6 +1,7 @@
-import { Box, Text, useApp, useStdout } from 'ink';
+import { Box, Text, measureElement, useApp, useStdout } from 'ink';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import stringWidth from 'string-width';
 import { InputPrompt } from './components/InputPrompt.js';
 import { MessageHistory } from './components/MessageHistory.js';
 import { PromptInput } from './components/PromptInput.js';
@@ -9,8 +10,8 @@ import { StatusBar } from './components/StatusBar.js';
 import { WelcomeScreen } from './components/WelcomeScreen.js';
 import { useMouseScroll } from './hooks/useMouseScroll.js';
 import type { Agent, InteractiveCommand, Message, Task } from './types/index.js';
-import { executeCommand } from './utils/commands.js';
 import { execCommand } from './utils/bash.js';
+import { executeCommand } from './utils/commands.js';
 
 interface AppProps {
   model?: string;
@@ -26,16 +27,21 @@ const MESSAGE_GAP = 1;
 const MESSAGE_LIST_MARGIN_TOP = 1;
 // Wheel / step scroll amount in rows.
 const SCROLL_STEP_ROWS = 4;
+// Reserved empty rows between the last message and the prompt, giving the
+// transcript the same breathing room as other chat TUIs (Claude Code, Codex).
+const MESSAGE_BOTTOM_GAP = 3;
 
 // Estimate how many terminal rows a message's content occupies after wrapping
 // within the message box. Mirrors MessageHistory's inner text width:
 // terminalWidth - list padding(2) - border(2) - box padding(2).
+// Uses `string-width` (the same measurement Ink uses) so wide characters
+// (emoji, CJK) occupy 2 columns instead of being miscounted via `.length`.
 function estimateContentRows(text: string, terminalWidth: number): number {
   const contentWidth = Math.max(1, terminalWidth - 6);
   if (!text) return 1;
   let rows = 0;
   for (const line of text.split('\n')) {
-    rows += Math.max(1, Math.ceil((line || ' ').length / contentWidth));
+    rows += Math.max(1, Math.ceil(stringWidth(line || ' ') / contentWidth));
   }
   return rows;
 }
@@ -51,18 +57,33 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
   const [agents] = useState<Agent[]>([]);
   const [_tasks] = useState<Task[]>([]);
   const [interactiveMenu, setInteractiveMenu] = useState<InteractiveCommand | null>(null);
-  const [historyHint, setHistoryHint] = useState<{ showHint: boolean; count: number }>({ showHint: false, count: 0 });
+  const [historyHint, setHistoryHint] = useState<{ showHint: boolean; count: number }>({
+    showHint: false,
+    count: 0,
+  });
   const [scrollOffset, setScrollOffset] = useState(0); // 0 = showing latest, positive = scrolled up
+  // Real measured height of the message display area (flexGrow box between the
+  // welcome screen and the prompt). Measured with Ink's `measureElement`; null
+  // until the first layout pass, when we fall back to a rough estimate.
+  const [measuredAreaHeight, setMeasuredAreaHeight] = useState<number | null>(null);
 
   const terminalHeight = (stdout.rows ?? 24) - 1;
   const terminalWidth = stdout.columns ?? 80;
 
   const activeAgentCount = agents.filter((a) => a.status === 'running').length;
 
-  // Estimate message area rows for scroll calculation.
-  // Use max possible prompt height so the available area stays stable.
-  const fixedTopBottom = 14 + 3 + 3; // welcome + prompt(max) + status
-  const messageAreaHeight = Math.max(3, terminalHeight - fixedTopBottom);
+  // Measure the real height available to the message area on every layout.
+  // The box is `flexGrow` inside a fixed-height container, so its height is
+  // stable regardless of its own content — no feedback loop.
+  const setMessageAreaRef = useCallback((node: unknown) => {
+    if (node) {
+      setMeasuredAreaHeight(measureElement(node as Parameters<typeof measureElement>[0]).height);
+    }
+  }, []);
+
+  // Available rows for messages. Fall back to a rough estimate until the first
+  // measurement is available (the welcome screen + prompt + status bars).
+  const messageAreaHeight = measuredAreaHeight ?? Math.max(3, terminalHeight - 24);
 
   // Measure every message so the slice respects real (wrapped) heights instead
   // of assuming a fixed height per message.
@@ -86,8 +107,11 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
   for (let i = totalMessages - 1; i >= 0; i--) {
     if (remaining <= 0) break;
     if (remaining < rowHeights[i]! + MESSAGE_GAP) {
-      // Only a partial top message fits; include it (its top edge is clipped).
-      startIndex = i;
+      // A full message no longer fits at the top. Do NOT include a partial one:
+      // including it would make the slice taller than the viewport and, because
+      // the list is top-anchored, overflow would clip the NEWEST message at the
+      // bottom. Leaving it out keeps the last message fully visible and leaves
+      // a natural gap above the prompt, like other chat TUIs.
       break;
     }
     remaining -= rowHeights[i]! + MESSAGE_GAP;
@@ -95,6 +119,12 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
   }
   // Clamp so we never slice past the array bounds.
   startIndex = Math.max(0, startIndex);
+  // Edge case: if even the newest message doesn't fit in the viewport, the loop
+  // above includes nothing. Always show at least the newest message so the chat
+  // never appears empty.
+  if (startIndex === totalMessages && totalMessages > 0) {
+    startIndex = totalMessages - 1;
+  }
   const visibleMessages = messages.slice(startIndex);
 
   const hasMoreAbove = effectiveOffset < maxScrollRows;
@@ -147,37 +177,43 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
     });
   }, []);
 
-  const handleInteractiveSelect = useCallback(async (option: SelectOption) => {
-    if (!interactiveMenu || interactiveMenu.type !== 'select') return;
+  const handleInteractiveSelect = useCallback(
+    async (option: SelectOption) => {
+      if (!interactiveMenu || interactiveMenu.type !== 'select') return;
 
-    const currentMenu = interactiveMenu;
-    setInteractiveMenu(null);
-    addMessage('system', 'Processing...');
+      const currentMenu = interactiveMenu;
+      setInteractiveMenu(null);
+      addMessage('system', 'Processing...');
 
-    const result = await currentMenu.callback(option.value);
+      const result = await currentMenu.callback(option.value);
 
-    if (result && typeof result === 'object' && 'type' in result) {
-      setInteractiveMenu(result as InteractiveCommand);
-    } else if (result) {
-      addMessage('system', result as string);
-    }
-  }, [interactiveMenu, addMessage]);
+      if (result && typeof result === 'object' && 'type' in result) {
+        setInteractiveMenu(result as InteractiveCommand);
+      } else if (result) {
+        addMessage('system', result as string);
+      }
+    },
+    [interactiveMenu, addMessage],
+  );
 
-  const handleInteractiveInput = useCallback(async (value: string) => {
-    if (!interactiveMenu || interactiveMenu.type !== 'input') return;
+  const handleInteractiveInput = useCallback(
+    async (value: string) => {
+      if (!interactiveMenu || interactiveMenu.type !== 'input') return;
 
-    const currentMenu = interactiveMenu;
-    setInteractiveMenu(null);
-    addMessage('system', 'Processing...');
+      const currentMenu = interactiveMenu;
+      setInteractiveMenu(null);
+      addMessage('system', 'Processing...');
 
-    const result = await currentMenu.callback(value);
+      const result = await currentMenu.callback(value);
 
-    if (result && typeof result === 'object' && 'type' in result) {
-      setInteractiveMenu(result as InteractiveCommand);
-    } else if (result) {
-      addMessage('system', result as string);
-    }
-  }, [interactiveMenu, addMessage]);
+      if (result && typeof result === 'object' && 'type' in result) {
+        setInteractiveMenu(result as InteractiveCommand);
+      } else if (result) {
+        addMessage('system', result as string);
+      }
+    },
+    [interactiveMenu, addMessage],
+  );
 
   const handleInteractiveCancel = useCallback(() => {
     setInteractiveMenu(null);
@@ -199,7 +235,8 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
         let output = '';
         if (result.stdout) output += result.stdout;
         if (result.stderr) output += (output ? '\n' : '') + result.stderr;
-        if (result.exitCode !== 0 && !result.stderr) output += (output ? '\n' : '') + `Exit code: ${result.exitCode}`;
+        if (result.exitCode !== 0 && !result.stderr)
+          output += (output ? '\n' : '') + `Exit code: ${result.exitCode}`;
 
         addMessage('system', output || '(no output)');
         return;
@@ -281,12 +318,7 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
   }
 
   return (
-    <Box
-      flexDirection="column"
-      width={terminalWidth}
-      height={terminalHeight}
-      overflow="hidden"
-    >
+    <Box flexDirection="column" width={terminalWidth} height={terminalHeight} overflow="hidden">
       <Box flexShrink={0} width="100%">
         <WelcomeScreen model={model} directory={process.cwd()} />
       </Box>
@@ -306,24 +338,47 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
             <Text color={'#888'}>▲ scroll up (Page Up / wheel)</Text>
           </Box>
         )}
-        {visibleMessages.length > 0 ? (
-          <MessageHistory messages={visibleMessages} />
-        ) : (
-          <Box flexDirection="column" paddingX={1} marginTop={1}>
-            <Text color={'#888'}>Type a command or message to get started.</Text>
-          </Box>
-        )}
+        <Box
+          ref={setMessageAreaRef}
+          // Top-anchored transcript (like other chat TUIs): messages flow from
+          // the top, and the fixed gap below keeps the newest message well above
+          // the input. The walk above guarantees the slice never overflows the
+          // viewport, so the newest message is never clipped at the bottom.
+          flexGrow={1}
+          flexShrink={1}
+          overflow="hidden"
+          flexDirection="column"
+          width="100%"
+        >
+          {visibleMessages.length > 0 ? (
+            <MessageHistory messages={visibleMessages} />
+          ) : (
+            <Box flexDirection="column" paddingX={1} marginTop={1}>
+              <Text color={'#888'}>Type a command or message to get started.</Text>
+            </Box>
+          )}
+        </Box>
         {hasMoreBelow && (
           <Box flexShrink={0} paddingLeft={1}>
             <Text color={'#888'}>▼ scroll down (Page Down / wheel)</Text>
           </Box>
         )}
+        <Box flexShrink={0} height={MESSAGE_BOTTOM_GAP} width="100%" />
       </Box>
       <Box flexShrink={0} width="100%">
-        <PromptInput onSubmit={handleSubmit} onScrollUp={handleScrollUpPage} onScrollDown={handleScrollDownPage} onHistoryHintChange={setHistoryHint} />
+        <PromptInput
+          onSubmit={handleSubmit}
+          onScrollUp={handleScrollUpPage}
+          onScrollDown={handleScrollDownPage}
+          onHistoryHintChange={setHistoryHint}
+        />
       </Box>
       <Box flexShrink={0} width="100%">
-        <StatusBar model={model} agentCount={activeAgentCount || agentCount} historyHint={historyHint} />
+        <StatusBar
+          model={model}
+          agentCount={activeAgentCount || agentCount}
+          historyHint={historyHint}
+        />
       </Box>
     </Box>
   );
