@@ -74,9 +74,19 @@ cp .env.example .env
 ```
 
 Required variables:
-- `DATABASE_URL` - PostgreSQL connection string
-- `JWT_SECRET` - Secret key for JWT tokens
+- `DATABASE_URL` - PostgreSQL connection string (defaults shown match `docker-compose.yml`: `postgresql://orion:orion@localhost:5432/orion`)
+- `JWT_SECRET` - Secret key for JWT tokens (generate one, e.g. `openssl rand -hex 32`)
 - `ORION_API_URL` - Backend API URL (default: http://localhost:3000)
+
+Optional LLM provider variables (default is local Ollama):
+- `ORION_PROVIDER` - `ollama` | `openai` | `anthropic` | `groq` (default: `ollama`)
+- `ORION_OLLAMA_BASE_URL` - Ollama endpoint (default: `http://127.0.0.1:11434`)
+- `ORION_PROVIDER_API_KEY` - API key for cloud providers; ignored by Ollama
+- `ORION_<NAME>_API_KEY` / `ORION_<NAME>_BASE_URL` / `ORION_<NAME>_MODEL` - per-provider overrides
+
+> **Docker:** `docker compose up -d` starts Postgres, an **Ollama** service, and the
+> API. The API runs migrations on startup and resolves the LLM provider from
+> environment variables, so no plaintext config file is written inside the container.
 
 ## Quick Start
 
