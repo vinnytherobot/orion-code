@@ -84,9 +84,11 @@ Optional LLM provider variables (default is local Ollama):
 - `ORION_PROVIDER_API_KEY` - API key for cloud providers; ignored by Ollama
 - `ORION_<NAME>_API_KEY` / `ORION_<NAME>_BASE_URL` / `ORION_<NAME>_MODEL` - per-provider overrides
 
-> **Docker:** `docker compose up -d` starts Postgres, an **Ollama** service, and the
-> API. The API runs migrations on startup and resolves the LLM provider from
-> environment variables, so no plaintext config file is written inside the container.
+> **Docker:** `docker compose up -d` starts Postgres and the API. The API runs
+> migrations on startup and resolves the LLM provider from environment variables,
+> so no plaintext config file is written inside the container. Ollama is **not**
+> containerized — it is expected to run on the host (`http://127.0.0.1:11434`)
+> and the API connects to it via `ORION_OLLAMA_BASE_URL`.
 
 ## Quick Start
 
