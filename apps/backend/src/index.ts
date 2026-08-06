@@ -1,7 +1,10 @@
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 import { buildDeps } from './container.js';
 import { env } from './env.js';
+import { checkDatabaseHealth } from '@orion/infrastructure';
 import { agentRoutes } from './routes/agent.routes.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { orchestrationRoutes } from './routes/orchestration.routes.js';
@@ -25,8 +28,17 @@ async function main(): Promise<void> {
 
   const deps = buildDeps(env.JWT_SECRET);
 
+  await fastify.register(helmet, { global: true });
+
+  await fastify.register(rateLimit, {
+    global: true,
+    max: env.NODE_ENV === 'production' ? 120 : 1000,
+    timeWindow: '1 minute',
+  });
+
+  const corsOrigins = env.CORS_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean);
   await fastify.register(cors, {
-    origin: env.CORS_ORIGIN,
+    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     credentials: true,
   });
 
@@ -83,8 +95,10 @@ async function main(): Promise<void> {
   await fastify.register((instance) => providerRoutes(instance, deps.providerUseCase));
 
   fastify.get('/api/health', async () => {
+    const dbHealthy = await checkDatabaseHealth();
     return {
-      status: 'ok',
+      status: dbHealthy ? 'ok' : 'degraded',
+      db: dbHealthy ? 'ok' : 'error',
       version: '0.1.0',
       timestamp: new Date().toISOString(),
     };

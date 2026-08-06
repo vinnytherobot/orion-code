@@ -1,7 +1,9 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import * as authSchema from './schemas/schema.js';
 import * as orchestrationSchema from './schemas/orchestration.js';
+import { runMigrations as runMigrationsShared } from './migrate.js';
 
 const schema = { ...authSchema, ...orchestrationSchema };
 
@@ -39,10 +41,18 @@ export function resetDatabase(): void {
   db = null;
 }
 
-export async function runMigrations(databaseUrl?: string): Promise<void> {
-  const url = databaseUrl || getDatabaseUrl();
-  const migrationClient = postgres(url, { max: 1 });
-  await migrationClient.end();
+export async function runMigrations(databaseUrl?: string, options?: { log?: boolean }): Promise<void> {
+  await runMigrationsShared(databaseUrl || getDatabaseUrl(), options);
+}
+
+export async function checkDatabaseHealth(): Promise<boolean> {
+  try {
+    const database = getDatabase();
+    await database.execute(sql`SELECT 1`);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export { schema };

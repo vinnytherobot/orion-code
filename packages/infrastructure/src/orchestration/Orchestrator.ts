@@ -1,10 +1,12 @@
 import type { IOrchestratorPort } from '@orion/application';
 import type { AgentResponseDTO, TaskResponseDTO } from '@orion/application';
+import type { ExecutePlanInput } from '@orion/application';
 import type { Result } from '@orion/shared';
 import { AppError, ok, fail } from '@orion/shared';
 import type { IAgentRepository, ITaskRepository, IDomainEventBus } from '@orion/domain';
-import { createTaskCompletedEvent } from '@orion/domain';
+import { Task, createTaskCompletedEvent } from '@orion/domain';
 import type { AgentExecutor } from './AgentExecutor.js';
+import type { ExecutionLogRepository } from '../db/repositories/execution-log.repository.js';
 import { EventEmitter } from 'node:events';
 
 interface OrchestratorConfig {
@@ -26,14 +28,27 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
       retryAttempts: 2,
     },
     private readonly eventBus?: IDomainEventBus,
+    private readonly executionLogRepo?: ExecutionLogRepository,
   ) {
     super();
   }
 
-  async executePlan(_tasks: TaskResponseDTO[]): Promise<Result<void, AppError>> {
+  async executePlan(plan: ExecutePlanInput): Promise<Result<void, AppError>> {
+    // Seed the incoming tasks as pending, then let the queue pick them up.
+    // This makes POST .../orchestration/execute a complete, self-contained entry
+    // point for the canonical implementation flow.
+    for (const input of plan.tasks ?? []) {
+      const task = Task.create({
+        projectId: plan.projectId,
+        title: input.title,
+        description: input.description,
+      });
+      await this.taskRepo.save(task);
+    }
+
     // Start execution loop
     this.processQueue();
-    
+
     return ok(undefined);
   }
 
@@ -143,20 +158,49 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
   private async startExecution(task: TaskResponseDTO, agent: AgentResponseDTO): Promise<void> {
     const controller = new AbortController();
     this.runningExecutions.set(task.id, controller);
-    
+
+    // Claim the task as "running" before the async execution so processQueue
+    // does not re-select the same pending task and spawn duplicate runs.
+    const claimTask = await this.taskRepo.findById(task.id);
+    if (claimTask) {
+      const started = claimTask.start();
+      if (!started.isFail()) {
+        await this.taskRepo.save(claimTask);
+      }
+    }
+
     this.emit('task:started', { taskId: task.id, agentId: agent.id });
-    
+
+    const startedAt = Date.now();
+
     try {
       const result = await this.executor.execute(agent, task);
-      
+
+      const logged = {
+        taskId: task.id,
+        agentId: agent.id,
+        input: task.description,
+        durationMs: Date.now() - startedAt,
+      };
+
       if (result.isFail()) {
+        await this.executionLogRepo?.log({ ...logged, error: result.error.message });
         await this.reportTaskFailed(task.id, result.error.message);
       } else if (result.value.success) {
+        await this.executionLogRepo?.log({ ...logged, output: result.value.output });
         await this.reportTaskComplete(task.id, result.value.output);
       } else {
+        await this.executionLogRepo?.log({ ...logged, error: result.value.output });
         await this.reportTaskFailed(task.id, result.value.output);
       }
     } catch (error) {
+      await this.executionLogRepo?.log({
+        taskId: task.id,
+        agentId: agent.id,
+        input: task.description,
+        error: String(error),
+        durationMs: Date.now() - startedAt,
+      });
       await this.reportTaskFailed(task.id, String(error));
     } finally {
       this.runningExecutions.delete(task.id);

@@ -25,7 +25,9 @@ export {
   setProviderApiKey,
   getProviderConfig,
   setProviderConfig,
+  getEffectiveProviderConfig,
 } from './providers/config.js';
+export type { EffectiveProviderConfig } from './providers/config.js';
 
 // Cache
 export { InMemoryCache } from './cache/InMemoryCache.js';
@@ -36,7 +38,7 @@ export { HistoryManager } from './filesystem/HistoryManager.js';
 export type { HistoryEntry } from './filesystem/HistoryManager.js';
 
 // Database
-export { getDatabase, resetDatabase } from './db/database.js';
+export { getDatabase, resetDatabase, checkDatabaseHealth } from './db/database.js';
 
 // Legacy Auth Repositories (to be migrated)
 export { UserRepository } from './db/repositories/user.repository.js';
@@ -53,6 +55,7 @@ export type { AgentMessage } from './orchestration/MessageBus.js';
 export { AgentRepository } from './db/repositories/agent.repository.js';
 export { TaskRepository } from './db/repositories/task.repository.js';
 export { ProjectDomainRepository } from './db/repositories/project-domain.repository.js';
+export { ExecutionLogRepository } from './db/repositories/execution-log.repository.js';
 
 // Domain-Aware Auth Repositories
 export { UserDomainRepository } from './db/repositories/user-domain.repository.js';

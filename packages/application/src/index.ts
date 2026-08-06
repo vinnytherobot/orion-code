@@ -3,7 +3,7 @@ export type { CreateTaskDTO, TaskResponseDTO } from './dtos/TaskDTO.js';
 export type { CreateAgentDTO, AgentResponseDTO } from './dtos/AgentDTO.js';
 
 // Ports
-export type { IOrchestratorPort } from './ports/IOrchestratorPort.js';
+export type { IOrchestratorPort, ExecutePlanInput } from './ports/IOrchestratorPort.js';
 export type { IAgentExecutorPort, AgentExecutionResult } from './ports/IAgentExecutorPort.js';
 export type { IEventBusPort } from './ports/IEventBusPort.js';
 export type { IUnitOfWorkPort } from './ports/IUnitOfWorkPort.js';

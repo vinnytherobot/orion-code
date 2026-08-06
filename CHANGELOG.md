@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Command history hint rendered inside StatusBar (replaces inline hint below input)
 - Orchestration database tables: projects, agents, tasks, execution_logs with enums and indexes
 - Docker CMD now runs migrations before starting the server
+- Execution logs persisted for every orchestration task run (execution_logs table)
+- LLM provider now resolves from environment variables (ORION_PROVIDER / ORION_*_API_KEY / ORION_*_BASE_URL / ORION_*_MODEL)
+- Database-aware `/api/health` endpoint (reports DB connectivity)
+- Ollama service added to docker-compose with provider environment wiring
+- Real, transactional startup migrations shared between CLI and programmatic startup
+- Helmet, global + per-route rate limiting, and tighter default CORS origins enabled
 
 ### Fixed
 - Screen shake when typing with existing messages in TUI (terminalHeight - 1 fix)
@@ -26,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stacked "Processing..." messages in multi-step interactive commands replaced instead of appended
 - PromptInput refactored from `ink-text-input` to native cursor-aware input with inline cursor rendering
 - History hint moved from PromptInput to StatusBar to keep input box height stable
+- Newest TUI messages were clipped out of view when the message list grew taller than the viewport (height-aware scroll)
+- `POST .../orchestration/execute` now persists the submitted tasks instead of ignoring them
+- Refresh token lifetime reduced from 100 years to 30 days
+- Migrations actually run (previously a no-op) and are executed transactionally
 
 ### Changed
 - Renamed project from "Orion TUI" to "Orion Code"

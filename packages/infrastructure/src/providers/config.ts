@@ -78,6 +78,35 @@ export function getProviderConfig(name: string): { apiKey?: string; baseUrl?: st
   return config.providers[name];
 }
 
+export interface EffectiveProviderConfig {
+  name: string;
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+}
+
+/**
+ * Resolves the provider that should be used at startup, with the following
+ * priority (highest first):
+ *   1. Environment variables (ORION_PROVIDER, ORION_<NAME>_API_KEY/BASE_URL/MODEL,
+ *      and the generic ORION_PROVIDER_API_KEY).
+ *   2. The persisted per-user config file (~/.orion/config.json).
+ * Env-driven resolution is what makes a Docker deployment work without any
+ * plaintext home-file writes inside the container.
+ */
+export function getEffectiveProviderConfig(): EffectiveProviderConfig {
+  const name = process.env.ORION_PROVIDER || loadProviderConfig().currentProvider || 'ollama';
+  const prefix = name.toUpperCase();
+
+  const saved = getProviderConfig(name) ?? {};
+
+  const apiKey = process.env.ORION_PROVIDER_API_KEY || saved.apiKey;
+  const baseUrl = process.env[`ORION_${prefix}_BASE_URL`] || saved.baseUrl;
+  const model = process.env[`ORION_${prefix}_MODEL`] || saved.model;
+
+  return { name, apiKey, baseUrl, model };
+}
+
 export function setProviderConfig(name: string, data: { apiKey?: string; baseUrl?: string; model?: string }): void {
   const config = loadProviderConfig();
   if (!config.providers[name]) {

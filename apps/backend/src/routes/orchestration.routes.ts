@@ -5,9 +5,10 @@ export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDep
   const { orchestrator, taskRepository: taskRepo } = deps;
 
   fastify.post('/api/projects/:projectId/orchestration/execute', async (request, reply) => {
+    const { projectId } = request.params as { projectId: string };
     const { tasks } = request.body as { tasks: any[] };
 
-    const result = await orchestrator.executePlan(tasks);
+    const result = await orchestrator.executePlan({ projectId, tasks });
     if (result.isFail()) {
       return reply.status(400).send({ success: false, error: result.error.message });
     }

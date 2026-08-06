@@ -9,18 +9,16 @@ import {
   RefreshTokenDomainRepository,
   ProjectDomainRepository,
   createProvider,
-  getCurrentProvider,
-  getProviderApiKey,
   getProviderInfo,
+  getEffectiveProviderConfig,
   AgentExecutor,
   Orchestrator,
   InMemoryEventBus,
   createUnitOfWork,
+  ExecutionLogRepository,
 } from '@orion/infrastructure';
 import {
   PlanUseCase,
-  ImplementUseCase,
-  AnalyzeProjectUseCase,
   AuthUseCase,
   ProjectUseCase,
 } from '@orion/application';
@@ -30,8 +28,6 @@ import { ProviderUseCase } from '@orion/application';
 
 export type AppDeps = {
   planUseCase: PlanUseCase;
-  implementUseCase: ImplementUseCase;
-  analyzeProjectUseCase: AnalyzeProjectUseCase;
   projectUseCase: ProjectUseCase;
   authUseCase: AuthUseCase;
   orchestrator: Orchestrator;
@@ -104,15 +100,15 @@ export function buildDeps(jwtSecret: string): AppDeps {
   const eventBus = new InMemoryEventBus();
   const unitOfWork = createUnitOfWork();
   
-  // Load saved provider config
-  const savedProviderName = getCurrentProvider();
-  const savedApiKey = getProviderApiKey(savedProviderName);
-  const providerInfo = getProviderInfo(savedProviderName);
-  
-  const llmProvider = createProvider(savedProviderName, {
-    apiKey: savedApiKey || 'ollama',
-    baseUrl: providerInfo?.defaultBaseUrl || 'http://127.0.0.1:11434',
-    model: providerInfo?.defaultModel || 'llama3',
+  // Load provider config, preferring environment variables so Docker
+  // deployments work without plaintext home-file writes.
+  const effective = getEffectiveProviderConfig();
+  const providerInfo = getProviderInfo(effective.name);
+
+  const llmProvider = createProvider(effective.name, {
+    apiKey: effective.apiKey || 'ollama',
+    baseUrl: effective.baseUrl || providerInfo?.defaultBaseUrl || 'http://127.0.0.1:11434',
+    model: effective.model || providerInfo?.defaultModel || 'llama3',
   });
   
   const agentExecutor = new AgentExecutor(llmProvider);
@@ -121,14 +117,6 @@ export function buildDeps(jwtSecret: string): AppDeps {
   const jwtProvider = createJWTProvider(jwtSecret);
 
   const planUseCase = new PlanUseCase(taskRepository, unitOfWork);
-  const implementUseCase = new ImplementUseCase(
-    taskRepository,
-    agentRepository,
-    agentExecutor,
-    eventBus,
-    unitOfWork,
-  );
-  const analyzeProjectUseCase = new AnalyzeProjectUseCase(taskRepository);
   const projectUseCase = new ProjectUseCase(projectRepository);
   const authUseCase = new AuthUseCase(
     userRepository,
@@ -147,12 +135,11 @@ export function buildDeps(jwtSecret: string): AppDeps {
     agentExecutor,
     undefined,
     eventBus,
+    new ExecutionLogRepository(),
   );
 
   return {
     planUseCase,
-    implementUseCase,
-    analyzeProjectUseCase,
     projectUseCase,
     authUseCase,
     orchestrator,

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 import postgres from 'postgres';
@@ -5,7 +6,7 @@ import postgres from 'postgres';
 // Load .env from project root
 config({ path: resolve(import.meta.dirname, '../../../../.env') });
 
-function getDatabaseUrl(): string {
+export function getDatabaseUrl(): string {
   const url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error('Missing required environment variable: DATABASE_URL');
@@ -119,23 +120,41 @@ const migrations = [
   'CREATE INDEX IF NOT EXISTS idx_execution_logs_agent_id ON execution_logs(agent_id)',
 ];
 
-async function migrate() {
-  console.log('Running migrations...');
-
-  const databaseUrl = getDatabaseUrl();
+/**
+ * Applies the full, idempotent schema migration inside a single transaction.
+ * Safe to invoke multiple times: every statement uses IF NOT EXISTS /
+ * duplicate_object guards.
+ */
+export async function runMigrations(
+  databaseUrl: string = getDatabaseUrl(),
+  options: { log?: boolean } = {},
+): Promise<void> {
+  const log = options.log ?? true;
   const client = postgres(databaseUrl, { max: 1 });
-
   try {
-    for (const sql of migrations) {
-      await client.unsafe(sql);
-    }
-    console.log('Migrations completed successfully!');
+    if (log) console.log('Running migrations...');
+    await client.begin(async (tx) => {
+      for (const sql of migrations) {
+        await tx.unsafe(sql);
+      }
+    });
+    if (log) console.log('Migrations completed successfully!');
   } catch (error) {
-    console.error('Migration failed:', error);
-    process.exit(1);
+    if (log) console.error('Migration failed:', error);
+    throw error;
   } finally {
     await client.end();
   }
 }
 
-migrate();
+const isMain =
+  process.argv[1] !== undefined
+    ? resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+    : false;
+
+if (isMain) {
+  runMigrations().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
