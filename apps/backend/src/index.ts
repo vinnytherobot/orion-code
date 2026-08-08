@@ -1,12 +1,13 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
+import Fastify, { type FastifyError } from 'fastify';
 import { buildDeps } from './container.js';
 import { env } from './env.js';
 import { checkDatabaseHealth } from '@orion/infrastructure';
 import { agentRoutes } from './routes/agent.routes.js';
 import { authRoutes } from './routes/auth.routes.js';
+import { chatRoutes } from './routes/chat.routes.js';
 import { orchestrationRoutes } from './routes/orchestration.routes.js';
 import { projectRoutes } from './routes/project.routes.js';
 import { providerRoutes } from './routes/provider.routes.js';
@@ -92,7 +93,28 @@ async function main(): Promise<void> {
   await fastify.register((instance) => taskRoutes(instance, deps));
   await fastify.register((instance) => agentRoutes(instance, deps));
   await fastify.register((instance) => orchestrationRoutes(instance, deps));
+  await fastify.register((instance) => chatRoutes(instance, { chatMessageRepository: deps.chatMessageRepository }));
   await fastify.register((instance) => providerRoutes(instance, deps.providerUseCase));
+
+  // Log every unhandled 4xx/5xx with route + stack so a "Bad Request"
+  // bubbling out of a plugin (helmet/rate-limit/etc.) shows up in the
+  // server log instead of as an opaque client error.
+  fastify.setErrorHandler((error: FastifyError, request, reply) => {
+    request.log.error(
+      {
+        err: error,
+        method: request.method,
+        url: request.url,
+        statusCode: error.statusCode ?? reply.statusCode,
+      },
+      'unhandled route error',
+    );
+    const status = error.statusCode ?? 500;
+    reply.status(status).send({
+      error: error.message || 'Internal Server Error',
+      code: error.code,
+    });
+  });
 
   fastify.get('/api/health', async () => {
     const dbHealthy = await checkDatabaseHealth();
