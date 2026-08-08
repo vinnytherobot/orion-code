@@ -86,6 +86,7 @@ const migrations = [
     parent_task_id TEXT,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'backend',
     status task_status NOT NULL DEFAULT 'pending',
     assigned_agent_id TEXT,
     dependencies JSONB NOT NULL DEFAULT '[]',
@@ -105,6 +106,14 @@ const migrations = [
     tokens_used INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
+  `CREATE TABLE IF NOT EXISTS chat_messages (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  )`,
 
   // === Indexes ===
   'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
@@ -118,6 +127,11 @@ const migrations = [
   'CREATE INDEX IF NOT EXISTS idx_tasks_assigned_agent_id ON tasks(assigned_agent_id)',
   'CREATE INDEX IF NOT EXISTS idx_execution_logs_task_id ON execution_logs(task_id)',
   'CREATE INDEX IF NOT EXISTS idx_execution_logs_agent_id ON execution_logs(agent_id)',
+  'CREATE INDEX IF NOT EXISTS idx_chat_messages_user_id ON chat_messages(user_id)',
+  'CREATE INDEX IF NOT EXISTS idx_chat_messages_project_id ON chat_messages(project_id)',
+
+  // === Idempotent additive migrations (for upgrading existing DBs) ===
+  'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT \'backend\'',
 ];
 
 /**

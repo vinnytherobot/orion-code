@@ -3,10 +3,16 @@ import type { AgentResponseDTO, TaskResponseDTO } from '@orion/application';
 import type { ExecutePlanInput } from '@orion/application';
 import type { Result } from '@orion/shared';
 import { AppError, ok, fail } from '@orion/shared';
-import type { IAgentRepository, ITaskRepository, IDomainEventBus } from '@orion/domain';
+import type { Agent, IAgentRepository, ITaskRepository, IDomainEventBus } from '@orion/domain';
 import { Task, createTaskCompletedEvent } from '@orion/domain';
 import type { AgentExecutor } from './AgentExecutor.js';
 import type { ExecutionLogRepository } from '../db/repositories/execution-log.repository.js';
+import type { WorktreeManager } from '../git/WorktreeManager.js';
+import type { MergeResolver } from '../git/MergeResolver.js';
+import type { ToolRegistry } from '../tools/ToolRegistry.js';
+import type { LockManager } from './LockManager.js';
+import type { MessageBus } from './MessageBus.js';
+import { Scheduler } from './Scheduler.js';
 import { EventEmitter } from 'node:events';
 
 interface OrchestratorConfig {
@@ -15,9 +21,34 @@ interface OrchestratorConfig {
   retryAttempts: number;
 }
 
+/**
+ * The Orchestrator coordinates the lifecycle of a Task:
+ *
+ *   1. `executePlan()` accepts a flat plan from the API (titles +
+ *      descriptions) and seeds them as pending Task rows.
+ *   2. `runProject()` is the wave-based loop: it uses the `Scheduler`
+ *      to compute waves (parallel groups), then runs every task in
+ *      the current wave up to `maxConcurrentAgents` in parallel.
+ *   3. For each task: claim it as `running`, pick an idle agent of the
+ *      same role, run the tool-use loop inside an isolated git
+ *      worktree, then commit and merge the result back.
+ *   4. Permission gating is enforced by the `ToolRegistry`; path-level
+ *      serialization is enforced by the `LockManager`.
+ *
+ * Events emitted (via EventEmitter):
+ *   - `task:started`
+ *   - `task:completed`
+ *   - `task:failed`
+ *   - `wave:completed`
+ *   - `plan:completed`
+ *
+ * NOTE: The legacy `execute()` / `getNextTask()` API is preserved for
+ * backwards compatibility with the existing HTTP routes.
+ */
 export class Orchestrator extends EventEmitter implements IOrchestratorPort {
   private runningExecutions = new Map<string, AbortController>();
-  
+  private readonly scheduler = new Scheduler();
+
   constructor(
     private readonly taskRepo: ITaskRepository,
     private readonly agentRepo: IAgentRepository,
@@ -29,14 +60,17 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     },
     private readonly eventBus?: IDomainEventBus,
     private readonly executionLogRepo?: ExecutionLogRepository,
+    private readonly worktreeManager?: WorktreeManager,
+    private readonly mergeResolver?: MergeResolver,
+    private readonly toolRegistry?: ToolRegistry,
+    private readonly lockManager?: LockManager,
+    private readonly messageBus?: MessageBus,
+    private readonly projectResolver?: { rootPath: string },
   ) {
     super();
   }
 
   async executePlan(plan: ExecutePlanInput): Promise<Result<void, AppError>> {
-    // Seed the incoming tasks as pending, then let the queue pick them up.
-    // This makes POST .../orchestration/execute a complete, self-contained entry
-    // point for the canonical implementation flow.
     for (const input of plan.tasks ?? []) {
       const task = Task.create({
         projectId: plan.projectId,
@@ -45,59 +79,59 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
       });
       await this.taskRepo.save(task);
     }
-
-    // Start execution loop
-    this.processQueue();
-
+    // Kick off the async loop but don't await it — the HTTP response
+    // returns immediately and the TUI follows via SSE.
+    void this.runProject(plan.projectId).catch((err) => {
+      this.emit('plan:failed', { projectId: plan.projectId, reason: String(err) });
+    });
     return ok(undefined);
   }
 
   async assignTask(taskId: string, agentId: string): Promise<Result<void, AppError>> {
     const task = await this.taskRepo.findById(taskId);
     if (!task) return fail(AppError.notFound('Task'));
-    
+
     const agent = await this.agentRepo.findById(agentId);
     if (!agent) return fail(AppError.notFound('Agent'));
-    
+
     const assignResult = task.assignTo(agentId);
     if (assignResult.isFail()) return assignResult;
-    
+
     const agentAssignResult = agent.assignTask(taskId);
     if (agentAssignResult.isFail()) return agentAssignResult;
-    
+
     await this.taskRepo.save(task);
     await this.agentRepo.save(agent);
-    
+
     return ok(undefined);
   }
 
   async getAvailableAgents(): Promise<AgentResponseDTO[]> {
     const agents = await this.agentRepo.findAll();
     return agents
-      .filter(a => a.status.isIdle())
-      .map(a => this.toAgentDTO(a));
+      .filter((a) => a.status.isIdle())
+      .map((a) => this.toAgentDTO(a));
   }
 
   async getNextTask(): Promise<TaskResponseDTO | null> {
-    // Get tasks that are ready (pending, all dependencies met)
     const pendingTasks = await this.taskRepo.findByStatus('pending');
-    
+
     for (const task of pendingTasks) {
       if (await this.areDependenciesMet(task)) {
         return this.toTaskDTO(task);
       }
     }
-    
+
     return null;
   }
 
   async reportTaskComplete(taskId: string, result: string): Promise<Result<void, AppError>> {
     const task = await this.taskRepo.findById(taskId);
     if (!task) return fail(AppError.notFound('Task'));
-    
+
     const completeResult = task.complete(result);
-    if (completeResult.isFail()) return completeResult;
-    
+    if (completeResult.isFail()) return fail(completeResult.error);
+
     if (task.assignedAgentId) {
       const agent = await this.agentRepo.findById(task.assignedAgentId);
       if (agent) {
@@ -105,7 +139,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         await this.agentRepo.save(agent);
       }
     }
-    
+
     await this.taskRepo.save(task);
     this.emit('task:completed', { taskId, result });
 
@@ -113,20 +147,17 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
       const event = createTaskCompletedEvent(taskId, task.assignedAgentId, result);
       await this.eventBus.publish(event);
     }
-    
-    this.processQueue();
-    
+
     return ok(undefined);
   }
 
   async reportTaskFailed(taskId: string, reason: string): Promise<Result<void, AppError>> {
     const task = await this.taskRepo.findById(taskId);
     if (!task) return fail(AppError.notFound('Task'));
-    
+
     const failResult = task.fail(reason);
-    if (failResult.isFail()) return failResult;
-    
-    // Reset agent
+    if (failResult.isFail()) return fail(failResult.error);
+
     if (task.assignedAgentId) {
       const agent = await this.agentRepo.findById(task.assignedAgentId);
       if (agent) {
@@ -134,80 +165,344 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         await this.agentRepo.save(agent);
       }
     }
-    
+
     await this.taskRepo.save(task);
     this.emit('task:failed', { taskId, reason });
-    
+
     return ok(undefined);
   }
 
-  // Private methods
+  /**
+   * Wave-based run loop. Computes the wave schedule from the project's
+   * pending tasks (filtered by `projectId` — this fixes the bug where
+   * the previous version mixed tasks across projects) and processes
+   * each wave in parallel.
+   */
+  async runProject(projectId: string): Promise<Result<void, AppError>> {
+    const allTasks = await this.taskRepo.findAll();
+    const projectTasks = allTasks.filter((t) => t.projectId === projectId);
 
-  private async processQueue(): Promise<void> {
-    while (this.runningExecutions.size < this.config.maxConcurrentAgents) {
-      const nextTask = await this.getNextTask();
-      if (!nextTask) break;
-      
-      const availableAgent = await this.findAgentForTask(nextTask);
-      if (!availableAgent) break;
-      
-      this.startExecution(nextTask, availableAgent);
+    if (projectTasks.length === 0) {
+      return fail(AppError.notFound(`No tasks for project ${projectId}`));
     }
+
+    const schedule = this.scheduler.build(
+      projectTasks.map((t) => ({
+        id: t.id.toString(),
+        dependencies: [...t.dependencies],
+      })),
+    );
+    if (!schedule.ok) {
+      return fail(AppError.internal(`Scheduling failed: ${schedule.reason}`));
+    }
+
+    for (const wave of schedule.waves) {
+      const waveResult = await this.runWave(projectTasks, wave.taskIds);
+      if (waveResult.isFail()) {
+        return fail(waveResult.error);
+      }
+      this.emit('wave:completed', { waveIndex: wave.index, taskIds: wave.taskIds });
+    }
+
+    this.emit('plan:completed', { projectId });
+    return ok(undefined);
   }
 
-  private async startExecution(task: TaskResponseDTO, agent: AgentResponseDTO): Promise<void> {
-    const controller = new AbortController();
-    this.runningExecutions.set(task.id, controller);
+  /**
+   * Runs a single wave. Each task in the wave starts as its own
+   * promise, bounded by `maxConcurrentAgents`. If any task in the
+   * wave fails the wave is reported as failed.
+   */
+  private async runWave(
+    allTasks: readonly Task[],
+    taskIds: readonly string[],
+  ): Promise<Result<void, AppError>> {
+    const byId = new Map(allTasks.map((t) => [t.id.toString(), t]));
+    const queue = [...taskIds];
 
-    // Claim the task as "running" before the async execution so processQueue
-    // does not re-select the same pending task and spawn duplicate runs.
-    const claimTask = await this.taskRepo.findById(task.id);
-    if (claimTask) {
-      const started = claimTask.start();
-      if (!started.isFail()) {
-        await this.taskRepo.save(claimTask);
+    const workers: Promise<Result<void, AppError>>[] = [];
+    while (queue.length > 0 && workers.length < this.config.maxConcurrentAgents) {
+      const id = queue.shift();
+      if (!id) break;
+      const task = byId.get(id);
+      if (!task) continue;
+      workers.push(this.runSingleTask(task));
+    }
+
+    const initialResults = await Promise.all(workers);
+
+    // Continue picking up remaining tasks as workers free up.
+    let pending = queue;
+    while (pending.length > 0) {
+      const next = pending.shift();
+      if (!next) break;
+      const task = byId.get(next);
+      if (!task) continue;
+      const result = await this.runSingleTask(task);
+      if (result.isFail()) {
+        return fail(result.error);
       }
     }
 
-    this.emit('task:started', { taskId: task.id, agentId: agent.id });
+    if (initialResults.some((r) => r.isFail())) {
+      const firstFail = initialResults.find((r) => r.isFail());
+      if (firstFail && firstFail.isFail()) {
+        return fail(firstFail.error);
+      }
+    }
+    return ok(undefined);
+  }
 
+  /**
+   * Runs a single task: claim → create worktree → execute →
+   * commit → merge → report. If `executor.executeAgent` is available
+   * we use the tool-use loop; otherwise we fall back to legacy
+   * `executor.execute()`.
+   */
+  private async runSingleTask(task: Task): Promise<Result<void, AppError>> {
+    const claim = task.start();
+    if (claim.isFail()) {
+      return fail(claim.error);
+    }
+    await this.taskRepo.save(task);
+
+    const agent = await this.claimAgentForRole(task.role);
+    if (!agent) {
+      task.fail(`No idle agent with role ${task.role}`);
+      await this.taskRepo.save(task);
+      return fail(AppError.conflict(`No idle agent with role ${task.role}`));
+    }
+
+    const assignResult = agent.assignTask(task.id.toString());
+    if (assignResult.isFail()) {
+      task.fail(assignResult.error.message);
+      await this.taskRepo.save(task);
+      agent.reset();
+      await this.agentRepo.save(agent);
+      return fail(assignResult.error);
+    }
+    await this.taskRepo.save(task);
+    await this.agentRepo.save(agent);
+
+    this.emit('task:started', { taskId: task.id.toString(), agentId: agent.id });
+
+    const controller = new AbortController();
+    this.runningExecutions.set(task.id.toString(), controller);
     const startedAt = Date.now();
 
-    try {
-      const result = await this.executor.execute(agent, task);
+    const worktreePath = await this.maybeCreateWorktree(task);
 
-      const logged = {
-        taskId: task.id,
+    try {
+      const execResult = await this.executeTask(task, agent, worktreePath, controller.signal);
+      const durationMs = Date.now() - startedAt;
+      const log = {
+        taskId: task.id.toString(),
         agentId: agent.id,
         input: task.description,
-        durationMs: Date.now() - startedAt,
+        durationMs,
       };
 
-      if (result.isFail()) {
-        await this.executionLogRepo?.log({ ...logged, error: result.error.message });
-        await this.reportTaskFailed(task.id, result.error.message);
-      } else if (result.value.success) {
-        await this.executionLogRepo?.log({ ...logged, output: result.value.output });
-        await this.reportTaskComplete(task.id, result.value.output);
-      } else {
-        await this.executionLogRepo?.log({ ...logged, error: result.value.output });
-        await this.reportTaskFailed(task.id, result.value.output);
+      if (execResult.isFail()) {
+        await this.executionLogRepo?.log({ ...log, error: execResult.error.message });
+        await this.maybeAbortWorktree(worktreePath);
+        task.fail(execResult.error.message);
+        agent.reset();
+        await this.taskRepo.save(task);
+        await this.agentRepo.save(agent);
+        this.emit('task:failed', { taskId: task.id.toString(), reason: execResult.error.message });
+        return fail(execResult.error);
       }
-    } catch (error) {
+
+      const exec = execResult.value;
+      const mergedSha = await this.maybeCommitAndMerge(task, worktreePath, exec.output);
       await this.executionLogRepo?.log({
-        taskId: task.id,
+        ...log,
+        output: mergedSha ? `${exec.output}\n[merge: ${mergedSha}]` : exec.output,
+      });
+      const success = task.complete(exec.output);
+      if (success.isFail()) {
+        return fail(success.error);
+      }
+      agent.completeTask();
+      await this.taskRepo.save(task);
+      await this.agentRepo.save(agent);
+      this.emit('task:completed', { taskId: task.id.toString(), result: exec.output });
+
+      if (this.eventBus) {
+        await this.eventBus.publish(
+          createTaskCompletedEvent(task.id.toString(), agent.id, exec.output),
+        );
+      }
+      return ok(undefined);
+    } catch (error) {
+      await this.maybeAbortWorktree(worktreePath);
+      await this.executionLogRepo?.log({
+        taskId: task.id.toString(),
         agentId: agent.id,
         input: task.description,
         error: String(error),
         durationMs: Date.now() - startedAt,
       });
-      await this.reportTaskFailed(task.id, String(error));
+      task.fail(String(error));
+      agent.reset();
+      await this.taskRepo.save(task);
+      await this.agentRepo.save(agent);
+      this.emit('task:failed', { taskId: task.id.toString(), reason: String(error) });
+      return fail(AppError.internal(String(error)));
     } finally {
-      this.runningExecutions.delete(task.id);
+      this.runningExecutions.delete(task.id.toString());
     }
   }
 
-  private async areDependenciesMet(task: any): Promise<boolean> {
+  private async executeTask(
+    task: Task,
+    agent: Agent | null,
+    worktreePath: string | null,
+    signal: AbortSignal,
+  ): Promise<Result<{ output: string }, AppError>> {
+    if (!agent) {
+      return fail(AppError.conflict('No agent'));
+    }
+    const taskDTO = this.toTaskDTO(task);
+    if (
+      this.toolRegistry &&
+      this.lockManager &&
+      worktreePath &&
+      typeof (this.executor as { executeAgent?: unknown }).executeAgent === 'function'
+    ) {
+      const result = await this.executor.executeAgent({
+        agent,
+        task: taskDTO,
+        worktreePath,
+        toolRegistry: this.toolRegistry,
+        lockManager: this.lockManager,
+        signal,
+      });
+      if (result.isFail()) return fail(result.error);
+      return ok({ output: result.value.output });
+    }
+    // Legacy fallback.
+    const result = await this.executor.execute(this.toAgentDTO(agent), taskDTO);
+    if (result.isFail()) return fail(result.error);
+    return ok({ output: result.value.output });
+  }
+
+  private async claimAgentForRole(role: string) {
+    const agents = await this.agentRepo.findAll();
+    const idle = agents.filter((a) => a.status.isIdle());
+    const sameRole = idle.find((a) => a.role === role);
+    return sameRole ?? idle[0] ?? null;
+  }
+
+  private async maybeCreateWorktree(task: Task): Promise<string | null> {
+    if (!this.worktreeManager || !this.projectResolver) return null;
+    try {
+      return await this.worktreeManager.createWorktree({
+        projectPath: this.projectResolver.rootPath,
+        taskId: task.id.toString(),
+        branchName: `orion/${task.id.toString()}`,
+      });
+    } catch (err) {
+      await this.messageBus?.send({
+        from: 'orchestrator',
+        to: 'broadcast',
+        type: 'notification',
+        payload: {
+          type: 'worktree:failed',
+          taskId: task.id.toString(),
+          reason: err instanceof Error ? err.message : String(err),
+        },
+      });
+      return null;
+    }
+  }
+
+  private async maybeCommitAndMerge(
+    task: Task,
+    worktreePath: string | null,
+    summary: string,
+  ): Promise<string | null> {
+    if (!worktreePath || !this.worktreeManager || !this.mergeResolver || !this.projectResolver) {
+      return null;
+    }
+    const branchName = `orion/${task.id.toString()}`;
+    try {
+      const sha = await this.worktreeManager.commitAll({
+        worktreePath,
+        message: `Orion(${task.role}): ${task.title} — ${summary.slice(0, 100)}`,
+      });
+      if (!sha) return null;
+      const result = await this.mergeResolver.merge({
+        projectPath: this.projectResolver.rootPath,
+        taskId: task.id.toString(),
+        branchName,
+        title: task.title,
+      });
+      if (result.isFail()) {
+        await this.messageBus?.send({
+          from: 'orchestrator',
+          to: 'broadcast',
+          type: 'notification',
+          payload: {
+            type: 'worktree:failed',
+            taskId: task.id.toString(),
+            reason: result.error.message,
+          },
+        });
+        return null;
+      }
+      const outcome = result.value;
+      if (outcome.status === 'merged') {
+        await this.messageBus?.send({
+          from: 'orchestrator',
+          to: 'broadcast',
+          type: 'notification',
+          payload: {
+            type: 'worktree:merged',
+            taskId: task.id.toString(),
+            sha: outcome.mergeCommitSha ?? sha,
+          },
+        });
+        await this.worktreeManager.removeWorktree(this.projectResolver.rootPath, worktreePath);
+        return outcome.mergeCommitSha ?? sha;
+      }
+      if (outcome.status === 'conflict') {
+        await this.messageBus?.send({
+          from: 'orchestrator',
+          to: 'broadcast',
+          type: 'notification',
+          payload: {
+            type: 'worktree:conflict',
+            taskId: task.id.toString(),
+            files: outcome.conflictFiles ?? [],
+          },
+        });
+        return null;
+      }
+      return null;
+    } catch (err) {
+      await this.messageBus?.send({
+        from: 'orchestrator',
+        to: 'broadcast',
+        type: 'notification',
+        payload: {
+          type: 'worktree:failed',
+          taskId: task.id.toString(),
+          reason: err instanceof Error ? err.message : String(err),
+        },
+      });
+      return null;
+    }
+  }
+
+  private async maybeAbortWorktree(worktreePath: string | null): Promise<void> {
+    if (!worktreePath || !this.worktreeManager || !this.projectResolver) return;
+    await this.worktreeManager
+      .removeWorktree(this.projectResolver.rootPath, worktreePath)
+      .catch(() => undefined);
+  }
+
+  private async areDependenciesMet(task: Task): Promise<boolean> {
     for (const depId of task.dependencies) {
       const depTask = await this.taskRepo.findById(depId);
       if (!depTask || !depTask.status.isTerminal()) {
@@ -217,22 +512,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     return true;
   }
 
-  private async findAgentForTask(task: TaskResponseDTO): Promise<AgentResponseDTO | null> {
-    const agents = await this.getAvailableAgents();
-    
-    // Find agent with matching role
-    const roleMap: Record<string, string[]> = {
-      'planning': ['planner'],
-      'implementation': ['backend', 'frontend'],
-      'testing': ['qa'],
-    };
-    
-    const requiredRoles = roleMap[task.status] || [];
-    
-    return agents.find(a => requiredRoles.includes(a.role)) || agents[0] || null;
-  }
-
-  private toAgentDTO(agent: any): AgentResponseDTO {
+  private toAgentDTO(agent: { toJSON(): any }): AgentResponseDTO {
     const props = agent.toJSON();
     return {
       id: props.id,
@@ -246,7 +526,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     };
   }
 
-  private toTaskDTO(task: any): TaskResponseDTO {
+  private toTaskDTO(task: Task): TaskResponseDTO {
     const props = task.toJSON();
     return {
       id: props.id.toString(),

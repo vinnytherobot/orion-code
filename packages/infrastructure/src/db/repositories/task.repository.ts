@@ -59,6 +59,7 @@ export class TaskRepository implements ITaskRepository {
         parentTaskId: props.parentTaskId,
         title: props.title,
         description: props.description,
+        role: props.role,
         status: props.status.value,
         assignedAgentId: props.assignedAgentId,
         dependencies: props.dependencies,
@@ -71,6 +72,7 @@ export class TaskRepository implements ITaskRepository {
         set: {
           status: props.status.value,
           assignedAgentId: props.assignedAgentId,
+          role: props.role,
           result: props.result,
           updatedAt: props.updatedAt,
         },
@@ -87,6 +89,7 @@ export class TaskRepository implements ITaskRepository {
       projectId: row.projectId,
       title: row.title,
       description: row.description,
+      role: row.role,
       status: TaskStatus.from(row.status as TaskStatusValue),
       assignedAgentId: row.assignedAgentId,
       parentTaskId: row.parentTaskId,
