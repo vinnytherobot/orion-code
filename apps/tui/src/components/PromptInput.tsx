@@ -16,9 +16,15 @@ interface PromptInputProps {
    * appears.
    */
   onHistoryHintChange?: (info: { showHint: boolean; count: number }) => void;
+  /**
+   * When set, Escape calls this handler instead of the default
+   * bash-mode toggle. Used by ChatView to navigate back to the
+   * session list.
+   */
+  onEscape?: () => void;
 }
 
-export function PromptInput({ onSubmit, onScrollUp, onScrollDown, onHistoryHintChange }: PromptInputProps): React.ReactElement {
+export function PromptInput({ onSubmit, onScrollUp, onScrollDown, onHistoryHintChange, onEscape }: PromptInputProps): React.ReactElement {
   const [input, setInput] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -215,6 +221,10 @@ export function PromptInput({ onSubmit, onScrollUp, onScrollDown, onHistoryHintC
 
     // === Escape ===
     if (key.escape) {
+      if (onEscape) {
+        onEscape();
+        return;
+      }
       if (isBashMode) {
         setIsBashMode(false);
         setInput('');

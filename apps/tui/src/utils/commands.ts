@@ -647,6 +647,7 @@ export const COMMANDS: Command[] = [
     if (expired) return expired;
     return `\nORION CLI v${h.data?.version || '0.1.0'}\nMulti-Agent Code Orchestration`;
   }},
+  { name: 'chat', description: 'Open Tech Lead chat mode', usage: '/chat', handler: async (): Promise<string> => '__CHAT__' },
   { name: 'exit', description: 'Exit Orion Code', aliases: ['quit', 'q'], handler: async (): Promise<string> => '__EXIT__' },
   { name: 'history', description: 'Show command history', handler: async (): Promise<string> => '\nCommand History: (not implemented yet)' },
 ];

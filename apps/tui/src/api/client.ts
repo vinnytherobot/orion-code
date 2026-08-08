@@ -137,6 +137,23 @@ interface ChatListResponse {
   messages: ChatMessage[];
 }
 
+interface ChatSessionResponse {
+  session: { id: string; title: string; createdAt: string; updatedAt: string };
+}
+
+interface ChatSessionListResponse {
+  sessions: Array<{ id: string; title: string; createdAt: string; updatedAt: string; messageCount: number }>;
+}
+
+interface ChatSessionDetailResponse {
+  session: { id: string; title: string; createdAt: string; updatedAt: string };
+  messages: ChatMessage[];
+}
+
+interface TechLeadResponse {
+  reply: string;
+}
+
 class ApiClient {
   private baseUrl: string;
   private accessToken: string | null = null;
@@ -466,6 +483,12 @@ class ApiClient {
     });
   }
 
+  async syncProvider() {
+    return this.request<{ synced: boolean; provider?: { name: string; model: string } }>('/api/provider/sync', {
+      method: 'POST',
+    });
+  }
+
 // Health check
   async health() {
     return this.request<HealthResponse>('/api/health');
@@ -487,8 +510,152 @@ class ApiClient {
     });
   }
 
+  /**
+   * Streaming variant for the main chat. Yields content chunks via SSE.
+   */
+  async *sendChatStream(content: string): AsyncGenerator<string, void, undefined> {
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers.Authorization = `Bearer ${this.accessToken}`;
+    }
+
+    const params = new URLSearchParams({ content });
+    const response = await fetch(`${this.baseUrl}/api/chat/stream?${params}`, { headers });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Stream error (${response.status}): ${body}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+          try {
+            const data = JSON.parse(trimmed.slice(6)) as {
+              chunk?: string;
+              done?: boolean;
+              error?: string;
+            };
+            if (data.error) throw new Error(data.error);
+            if (data.done) return;
+            if (data.chunk) yield data.chunk;
+          } catch (e) {
+            if (e instanceof Error && e.message !== 'Unexpected end of JSON input') {
+              throw e;
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
   async clearChat() {
     return this.request<{ success: boolean }>('/api/chat', { method: 'DELETE' });
+  }
+
+  // Chat session endpoints
+  async listChatSessions() {
+    return this.request<ChatSessionListResponse>('/api/chat/sessions');
+  }
+
+  async createChatSession(title?: string) {
+    return this.request<ChatSessionResponse>('/api/chat/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    });
+  }
+
+  async getChatSession(sessionId: string) {
+    return this.request<ChatSessionDetailResponse>(`/api/chat/sessions/${sessionId}`);
+  }
+
+  // Tech Lead chat endpoint
+  async sendTechLeadChat(sessionId: string, content: string) {
+    return this.request<TechLeadResponse>('/api/chat/techlead', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, content }),
+    });
+  }
+
+  /**
+   * Streaming variant: yields content chunks as they arrive via SSE.
+   * Returns an async generator the caller can iterate with `for await`.
+   */
+  async *sendTechLeadChatStream(
+    sessionId: string,
+    content: string,
+  ): AsyncGenerator<string, void, undefined> {
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers.Authorization = `Bearer ${this.accessToken}`;
+    }
+
+    const params = new URLSearchParams({ sessionId, content });
+    const response = await fetch(`${this.baseUrl}/api/chat/techlead/stream?${params}`, {
+      headers,
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Stream error (${response.status}): ${body}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+          try {
+            const data = JSON.parse(trimmed.slice(6)) as {
+              chunk?: string;
+              done?: boolean;
+              error?: string;
+            };
+            if (data.error) throw new Error(data.error);
+            if (data.done) return;
+            if (data.chunk) yield data.chunk;
+          } catch (e) {
+            if (e instanceof Error && e.message !== 'Unexpected end of JSON input') {
+              throw e;
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
   }
 
   /**
