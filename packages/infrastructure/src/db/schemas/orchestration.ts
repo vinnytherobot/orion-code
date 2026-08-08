@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, integer, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { users } from './schema.js';
 
 // Enums - matching domain types exactly
 export const projectStatusEnum = pgEnum('project_status', ['active', 'completed', 'paused', 'cancelled']);
@@ -47,6 +48,9 @@ export const tasks = pgTable('tasks', {
   parentTaskId: text('parent_task_id'),
   title: text('title').notNull(),
   description: text('description').notNull(),
+  // Which specialist agent should execute this task (planner, backend, qa, ...).
+  // The orchestrator uses this to find a matching agent via Agent.role.
+  role: text('role').notNull().default('backend'),
   status: taskStatusEnum('status').notNull().default('pending'),
   assignedAgentId: text('assigned_agent_id'),
   dependencies: jsonb('dependencies').$type<string[]>().notNull().default([]),
@@ -73,6 +77,22 @@ export const executionLogs = pgTable('execution_logs', {
   createdAt: timestamp('created_at').notNull(),
 });
 
+// Chat messages table - persists the conversation with the "tech lead" agent.
+// projectId is optional so a user can have an unscoped chat (global) and
+// per-project chats for orchestration context.
+export const chatMessages = pgTable('chat_messages', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  projectId: text('project_id').references(() => projects.id, {
+    onDelete: 'cascade',
+  }),
+  role: text('role').notNull(), // 'user' | 'assistant' | 'system'
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').notNull(),
+});
+
 // Type exports
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
@@ -82,3 +102,5 @@ export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
 export type ExecutionLog = typeof executionLogs.$inferSelect;
 export type NewExecutionLog = typeof executionLogs.$inferInsert;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;

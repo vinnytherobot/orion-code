@@ -21,7 +21,9 @@ export async function providerRoutes(app: FastifyInstance, providerUseCase: Prov
 
     try {
       const provider = await providerUseCase.switchProvider(name, apiKey, model);
-      return reply.send({ success: true, provider });
+      // Flatten to { provider } so the TUI client can read `result.data?.provider.model`
+      // directly without unwrapping a `success` wrapper.
+      return reply.send({ provider });
     } catch (error) {
       return reply.status(400).send({ error: error instanceof Error ? error.message : 'Failed to switch provider' });
     }

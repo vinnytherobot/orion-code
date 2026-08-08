@@ -63,6 +63,7 @@ export class AgentRepository implements IAgentRepository {
         role: props.role,
         status: props.status.value,
         currentTaskId: props.currentTaskId,
+        model: 'llama3',
         permissions: props.permissions,
         createdAt: props.createdAt,
         updatedAt: props.updatedAt,

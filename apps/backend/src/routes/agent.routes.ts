@@ -80,48 +80,54 @@ export async function agentRoutes(app: FastifyInstance, deps: AppDeps) {
   app.post('/api/agents/initialize/:projectId', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
 
-    const existingAgents = await agentRepo.findByProject(projectId);
-    if (existingAgents.length > 0) {
-      return reply.send({
-        agents: existingAgents.map(a => {
-          const props = a.toJSON();
-          return {
-            id: props.id,
-            name: props.name,
-            role: props.role,
-            status: props.status.value,
-          };
-        }),
-      });
+    try {
+      const existingAgents = await agentRepo.findByProject(projectId);
+      if (existingAgents.length > 0) {
+        return reply.send({
+          agents: existingAgents.map(a => {
+            const props = a.toJSON();
+            return {
+              id: props.id,
+              name: props.name,
+              role: props.role,
+              status: props.status.value,
+            };
+          }),
+        });
+      }
+
+      const agentDefinitions = [
+        { name: 'Planner', role: 'planner', permissions: [] },
+        { name: 'Architect', role: 'architect', permissions: [] },
+        { name: 'Backend', role: 'backend', permissions: ['src/'] },
+        { name: 'Database', role: 'database', permissions: ['src/infrastructure/database/'] },
+        { name: 'Frontend', role: 'frontend', permissions: ['src/presentation/'] },
+        { name: 'QA', role: 'qa', permissions: ['src/', 'tests/'] },
+        { name: 'Reviewer', role: 'reviewer', permissions: ['src/'] },
+        { name: 'DevOps', role: 'devops', permissions: ['docker/', '.github/'] },
+        { name: 'Security', role: 'security', permissions: ['src/'] },
+        { name: 'Documentation', role: 'documentation', permissions: ['docs/', 'README.md'] },
+      ];
+
+      const createdAgents: Array<{ id: string; name: string; role: string }> = [];
+      for (const def of agentDefinitions) {
+        const agent = Agent.create({
+          id: randomUUID(),
+          name: def.name,
+          projectId,
+          role: def.role,
+          permissions: def.permissions,
+        });
+        await agentRepo.save(agent);
+        createdAgents.push({ id: agent.id, name: agent.name, role: agent.role });
+      }
+
+      return reply.send({ agents: createdAgents });
+    } catch (err) {
+      request.log.error({ err, projectId }, 'failed to initialize agents');
+      const message = err instanceof Error ? err.message : String(err);
+      return reply.status(500).send({ error: `Failed to initialize agents: ${message}` });
     }
-
-    const agentDefinitions = [
-      { name: 'Planner', role: 'planner', permissions: [] },
-      { name: 'Architect', role: 'architect', permissions: [] },
-      { name: 'Backend', role: 'backend', permissions: ['src/'] },
-      { name: 'Database', role: 'database', permissions: ['src/infrastructure/database/'] },
-      { name: 'Frontend', role: 'frontend', permissions: ['src/presentation/'] },
-      { name: 'QA', role: 'qa', permissions: ['src/', 'tests/'] },
-      { name: 'Reviewer', role: 'reviewer', permissions: ['src/'] },
-      { name: 'DevOps', role: 'devops', permissions: ['docker/', '.github/'] },
-      { name: 'Security', role: 'security', permissions: ['src/'] },
-      { name: 'Documentation', role: 'documentation', permissions: ['docs/', 'README.md'] },
-    ];
-
-    const createdAgents: Array<{ id: string; name: string; role: string }> = [];
-    for (const def of agentDefinitions) {
-      const agent = Agent.create({
-        id: randomUUID(),
-        name: def.name,
-        projectId,
-        role: def.role,
-        permissions: def.permissions,
-      });
-      await agentRepo.save(agent);
-      createdAgents.push({ id: agent.id, name: agent.name, role: agent.role });
-    }
-
-    return reply.send({ agents: createdAgents });
   });
 
   app.post('/api/agents/:id/assign', async (request, reply) => {

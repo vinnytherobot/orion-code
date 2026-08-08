@@ -12,6 +12,7 @@ import { useMouseScroll } from './hooks/useMouseScroll.js';
 import type { Agent, InteractiveCommand, Message, Task } from './types/index.js';
 import { execCommand } from './utils/bash.js';
 import { executeCommand } from './utils/commands.js';
+import { apiClient } from './api/client.js';
 
 interface AppProps {
   model?: string;
@@ -50,12 +51,15 @@ function messageRows(msg: Message, terminalWidth: number): number {
   return MESSAGE_BOX_OVERHEAD + estimateContentRows(msg.content, terminalWidth);
 }
 
-export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.ReactElement {
+export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProps): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [messages, setMessages] = useState<Message[]>([]);
   const [agents] = useState<Agent[]>([]);
   const [_tasks] = useState<Task[]>([]);
+  // Resolve the active model from the backend on mount and whenever the
+  // user switches providers — fixes the "not-set" header bug.
+  const [model, setModel] = useState<string>(initialModel);
   const [interactiveMenu, setInteractiveMenu] = useState<InteractiveCommand | null>(null);
   const [historyHint, setHistoryHint] = useState<{ showHint: boolean; count: number }>({
     showHint: false,
@@ -156,6 +160,36 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
   // Mouse wheel support: finer step than PageUp/PageDown.
   useMouseScroll({ onScrollUp: handleScrollUp, onScrollDown: handleScrollDown });
 
+  // Expose a header-refresh hook so command handlers can re-render the
+  // model label after `/provider` switches providers.
+  useEffect(() => {
+    const refresh = async () => {
+      const result = await apiClient.getCurrentProvider();
+      const m = result.data?.provider?.model;
+      if (m) setModel(m);
+    };
+    refresh().catch(() => undefined);
+    (globalThis as { __orionRefreshModel?: () => Promise<void> }).__orionRefreshModel = refresh;
+    return () => {
+      delete (globalThis as { __orionRefreshModel?: () => Promise<void> }).__orionRefreshModel;
+    };
+  }, []);
+
+  // Resolve the current provider/model on mount so the header reflects
+  // the backend state, not the placeholder default.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const result = await apiClient.getCurrentProvider();
+      if (cancelled) return;
+      const m = result.data?.provider?.model;
+      if (m) setModel(m);
+    })().catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const addMessage = useCallback((role: Message['role'], content: string, agent?: Agent) => {
     const msg: Message = {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -243,6 +277,13 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
       }
 
       if (trimmed.startsWith('/')) {
+        // Echo the user's command in the transcript alongside the system
+        // result, so the chat reads as a full conversation rather than just
+        // a stream of agent responses. Skip `/clear` to avoid leaving a
+        // dangling user message above the cleared transcript.
+        if (trimmed !== '/clear') {
+          addMessage('user', trimmed);
+        }
         const result = await executeCommand(trimmed);
 
         if (result === '__CLEAR__') {
@@ -268,12 +309,46 @@ export function App({ model = 'not-set', agentCount = 0 }: AppProps): React.Reac
 
       addMessage('user', trimmed);
 
-      setTimeout(() => {
+      // Persist the user message and echo back a placeholder while the
+      // orchestrator/assistant streams a reply. Without this hook the
+      // TUI was a UI shell only — typing a message just printed a
+      // hardcoded "not yet connected" string.
+      addMessage('system', 'Processing...');
+
+      try {
+        const sendResult = await apiClient.sendChat('user', trimmed);
+        if (sendResult.error || !sendResult.data) {
+          addMessage(
+            'system',
+            `Failed to send message: ${sendResult.error ?? 'unknown error'}`,
+          );
+          return;
+        }
+        // Try to load history and append the assistant reply once it
+        // arrives. The backend currently has no streaming endpoint, so we
+        // poll briefly to give the planner/orchestrator a chance to write.
+        for (let attempt = 0; attempt < 5; attempt++) {
+          await new Promise((r) => setTimeout(r, 1500));
+          const history = await apiClient.listChat(undefined, 20);
+          if (!history.data) continue;
+          const assistant = history.data.messages.find(
+            (m) => m.role === 'assistant' && m.userId === sendResult.data!.message.userId,
+          );
+          if (assistant) {
+            addMessage('system', assistant.content);
+            return;
+          }
+        }
         addMessage(
           'system',
-          'Orchestrator received your request. (Agent orchestration is not yet connected.)',
+          'Message saved. The orchestrator will reply once it processes the request.',
         );
-      }, 300);
+      } catch (err) {
+        addMessage(
+          'system',
+          `Chat error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     },
     [addMessage, exit],
   );

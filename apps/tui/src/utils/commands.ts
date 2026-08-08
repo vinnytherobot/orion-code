@@ -67,6 +67,52 @@ async function getTaskOptions(): Promise<SelectOption[] | InteractiveCommand> {
   return tasks.map(t => ({ label: t.title, value: t.id, description: `${t.status} - ${(t.description || '').slice(0, 50)}` }));
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Accepts a UUID, a project name, or a short id prefix (the form
+ * printed by /projects as `[538e90a2]`). Returns the canonical UUID or
+ * an error string to surface to the user.
+ *
+ * Centralized here because /init, /project, /task-stats, /orchestrate
+ * and /implement all needed the same logic and previously each made
+ * its own (buggy) attempt.
+ */
+async function resolveProjectId(arg: string): Promise<{ id: string } | { error: string }> {
+  if (UUID_RE.test(arg)) return { id: arg };
+  const pr = await apiClient.listProjects();
+  if (pr.error) return { error: pr.error };
+  const projects = pr.data?.projects || [];
+  const byName = projects.find(p => p.name.toLowerCase() === arg.toLowerCase());
+  if (byName) return { id: byName.id };
+  const byPrefix = projects.find(p => p.id.toLowerCase().startsWith(arg.toLowerCase()));
+  if (byPrefix) return { id: byPrefix.id };
+  return { error: `Project not found: ${arg}\nUse /projects to see available projects.` };
+}
+
+async function resolveAgentId(arg: string): Promise<{ id: string } | { error: string }> {
+  if (UUID_RE.test(arg)) return { id: arg };
+  const ar = await apiClient.listAgents();
+  if (ar.error) return { error: ar.error };
+  const agents = ar.data?.agents || [];
+  const byName = agents.find(a => a.name.toLowerCase() === arg.toLowerCase());
+  if (byName) return { id: byName.id };
+  const byPrefix = agents.find(a => a.id.toLowerCase().startsWith(arg.toLowerCase()));
+  if (byPrefix) return { id: byPrefix.id };
+  return { error: `Agent not found: ${arg}\nUse /agents to see available agents.` };
+}
+
+async function resolveTaskId(arg: string): Promise<{ id: string } | { error: string }> {
+  if (UUID_RE.test(arg)) return { id: arg };
+  const tr = await apiClient.listTasks();
+  if (tr.error) return { error: tr.error };
+  const tasks = tr.data?.tasks || [];
+  const byPrefix = tasks.find(t => t.id.toLowerCase().startsWith(arg.toLowerCase()));
+  if (byPrefix) return { id: byPrefix.id };
+  // Tasks don't have names in this UI — surface the missing match.
+  return { error: `Task not found: ${arg}` };
+}
+
 // Common task types for implement command
 const TASK_TYPES: SelectOption[] = [
   { label: 'Create health check endpoint', value: 'Create a health check endpoint (GET /health) that returns server status' },
@@ -198,7 +244,9 @@ export const COMMANDS: Command[] = [
       if (optionsResult.length === 0) return '\nNo projects found.';
       return { type: 'select', title: 'Select project to delete:', options: optionsResult, callback: async (id: string) => { const r = await apiClient.deleteProject(id); if (r.error) return `Error: ${r.error}`; return '\nProject deleted successfully.'; } };
     }
-    const result = await apiClient.deleteProject(projectId);
+    const resolved = await resolveProjectId(projectId);
+    if ('error' in resolved) return `\nError: ${resolved.error}`;
+    const result = await apiClient.deleteProject(resolved.id);
     const expired = handleSessionExpired(result);
     if (expired) return expired;
     if (result.error) return `\nError: ${result.error}`;
@@ -237,6 +285,9 @@ export const COMMANDS: Command[] = [
         }
       };
     }
+    const resolved = await resolveProjectId(projectId);
+    if ('error' in resolved) return `\nError: ${resolved.error}`;
+    projectId = resolved.id;
     let title = args[1];
     if (!title) {
       return {
@@ -282,7 +333,11 @@ export const COMMANDS: Command[] = [
       if (taskOptionsResult.length === 0) return '\nNo tasks found.';
       return { type: 'select', title: 'Select task to assign:', options: taskOptionsResult, callback: async (tid: string) => { const r = await apiClient.assignTask(agentId, tid); if (r.error) return `Error: ${r.error}`; return `\nTask assigned to ${r.data?.agent.name}`; } };
     }
-    const result = await apiClient.assignTask(agentId, taskId); if (result.error) return `\nError: ${result.error}`; return `\nTask assigned to ${result.data?.agent.name}`;
+    const agentResolved = await resolveAgentId(agentId);
+    if ('error' in agentResolved) return `\nError: ${agentResolved.error}`;
+    const taskResolved = await resolveTaskId(taskId);
+    if ('error' in taskResolved) return `\nError: ${taskResolved.error}`;
+    const result = await apiClient.assignTask(agentResolved.id, taskResolved.id); if (result.error) return `\nError: ${result.error}`; return `\nTask assigned to ${result.data?.agent.name}`;
   }},
   { name: 'complete', description: 'Mark a task as completed by an agent', usage: '/complete', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
     if (!apiClient.isAuthenticated()) return '\nNot authenticated. Use /login or /register first.';
@@ -310,7 +365,9 @@ export const COMMANDS: Command[] = [
       };
     }
     const result = args.slice(1).join(' ');
-    const apiResult = await apiClient.completeTask(agentId, result || 'Completed'); if (apiResult.error) return `\nError: ${apiResult.error}`; return `\nTask completed by ${apiResult.data?.agent.name}`;
+    const agentResolved = await resolveAgentId(agentId);
+    if ('error' in agentResolved) return `\nError: ${agentResolved.error}`;
+    const apiResult = await apiClient.completeTask(agentResolved.id, result || 'Completed'); if (apiResult.error) return `\nError: ${apiResult.error}`; return `\nTask completed by ${apiResult.data?.agent.name}`;
   }},
   { name: 'reset-agent', description: 'Reset an agent to idle state', usage: '/reset-agent [agentId]', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
     if (!apiClient.isAuthenticated()) return '\nNot authenticated. Use /login or /register first.';
@@ -321,7 +378,9 @@ export const COMMANDS: Command[] = [
       if (agentOptionsResult.length === 0) return '\nNo agents found.';
       return { type: 'select', title: 'Select agent to reset:', options: agentOptionsResult, callback: async (id: string) => { const r = await apiClient.resetAgent(id); if (r.error) return `Error: ${r.error}`; return `\nAgent ${r.data?.agent.name} reset to idle.`; } };
     }
-    const result = await apiClient.resetAgent(agentId); if (result.error) return `\nError: ${result.error}`; return `\nAgent ${result.data?.agent.name} reset to idle.`;
+    const agentResolved = await resolveAgentId(agentId);
+    if ('error' in agentResolved) return `\nError: ${agentResolved.error}`;
+    const result = await apiClient.resetAgent(agentResolved.id); if (result.error) return `\nError: ${result.error}`; return `\nAgent ${result.data?.agent.name} reset to idle.`;
   }},
   { name: 'delete-task', description: 'Delete a task', usage: '/delete-task [taskId]', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
     if (!apiClient.isAuthenticated()) return '\nNot authenticated. Use /login or /register first.';
@@ -332,7 +391,9 @@ export const COMMANDS: Command[] = [
       if (taskOptionsResult.length === 0) return '\nNo tasks found.';
       return { type: 'select', title: 'Select task to delete:', options: taskOptionsResult, callback: async (id: string) => { const r = await apiClient.deleteTask(id); if (r.error) return `Error: ${r.error}`; return '\nTask deleted successfully.'; } };
     }
-    const result = await apiClient.deleteTask(taskId); if (result.error) return `\nError: ${result.error}`; return '\nTask deleted successfully.';
+    const taskResolved = await resolveTaskId(taskId);
+    if ('error' in taskResolved) return `\nError: ${taskResolved.error}`;
+    const result = await apiClient.deleteTask(taskResolved.id); if (result.error) return `\nError: ${result.error}`; return '\nTask deleted successfully.';
   }},
   { name: 'task-stats', description: 'Show task statistics for a project', usage: '/task-stats [projectId]', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
     if (!apiClient.isAuthenticated()) return '\nNot authenticated. Use /login or /register first.';
@@ -343,7 +404,9 @@ export const COMMANDS: Command[] = [
       if (optionsResult.length === 0) return '\nNo projects found.';
       return { type: 'select', title: 'Select project:', options: optionsResult, callback: async (id: string) => { const r = await apiClient.getTaskStats(id); if (r.error) return `Error: ${r.error}`; const s = r.data?.stats; if (!s) return '\nNo stats available.'; return `\nTask Statistics:\n  Total: ${s.total}\n  Pending: ${s.pending}\n  Running: ${s.running}\n  Completed: ${s.completed}\n  Failed: ${s.failed}`; } };
     }
-    const result = await apiClient.getTaskStats(projectId); if (result.error) return `\nError: ${result.error}`;
+    const projectResolved = await resolveProjectId(projectId);
+    if ('error' in projectResolved) return `\nError: ${projectResolved.error}`;
+    const result = await apiClient.getTaskStats(projectResolved.id); if (result.error) return `\nError: ${result.error}`;
     const s = result.data?.stats; if (!s) return '\nNo stats available.'; return `\nTask Statistics:\n  Total: ${s.total}\n  Pending: ${s.pending}\n  Running: ${s.running}\n  Completed: ${s.completed}\n  Failed: ${s.failed}`;
   }},
   { name: 'project', description: 'Show project details', usage: '/project [projectId]', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
@@ -355,7 +418,9 @@ export const COMMANDS: Command[] = [
       if (optionsResult.length === 0) return '\nNo projects found.';
       return { type: 'select', title: 'Select project:', options: optionsResult, callback: async (pid: string) => { const r = await apiClient.getProject(pid); if (r.error) return `Error: ${r.error}`; const p = r.data?.project; if (!p) return '\nProject not found.'; return `\nProject: ${p.name}\nPath: ${p.path}${p.description ? `\nDescription: ${p.description}` : ''}`; } };
     }
-    const result = await apiClient.getProject(id); if (result.error) return `\nError: ${result.error}`; const p = result.data?.project; if (!p) return '\nProject not found.';
+    const projectResolved = await resolveProjectId(id);
+    if ('error' in projectResolved) return `\nError: ${projectResolved.error}`;
+    const result = await apiClient.getProject(projectResolved.id); if (result.error) return `\nError: ${result.error}`; const p = result.data?.project; if (!p) return '\nProject not found.';
     return `\nProject: ${p.name}\nPath: ${p.path}${p.description ? `\nDescription: ${p.description}` : ''}`;
   }},
   { name: 'register', description: 'Register a new user', usage: '/register', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
@@ -451,8 +516,9 @@ export const COMMANDS: Command[] = [
       if (optionsResult.length === 0) return '\nNo projects found. Use /create-project to create one first.';
       return { type: 'select', title: 'Select project to initialize agents:', options: optionsResult, callback: async (id: string) => { const r = await apiClient.initializeAgents(id); if (r.error) return `Error: ${r.error}`; const agents = r.data?.agents || []; let o = `\nInitialized ${agents.length} agents:`; agents.forEach((a) => { o += `\n  ${a.name} (${a.role})`; }); return o; } };
     }
-    let projectId = projectArg; const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectArg);
-    if (!isUUID) { const pr = await apiClient.listProjects(); if (pr.error) return `\nError: ${pr.error}`; const projects = pr.data?.projects || []; const p = projects.find(p => p.name.toLowerCase() === projectArg.toLowerCase()); if (!p) return `\nProject not found: ${projectArg}\nUse /projects to see available projects.`; projectId = p.id; }
+    const resolved = await resolveProjectId(projectArg);
+    if ('error' in resolved) return `\nError: ${resolved.error}`;
+    const projectId = resolved.id;
     const result = await apiClient.initializeAgents(projectId); if (result.error) return `\nError: ${result.error}`;
     const agents = result.data?.agents || []; let output = `\nInitialized ${agents.length} agents:`; agents.forEach((a) => { output += `\n  ${a.name} (${a.role})`; }); return output;
   }},
@@ -466,7 +532,9 @@ export const COMMANDS: Command[] = [
       return { type: 'select', title: 'Select project:', options: optionsResult, callback: async (pid: string) => { return { type: 'select', title: 'Select what to implement:', options: TASK_TYPES, callback: async (task: string) => { const r = await apiClient.executeOrchestration(pid, [{ title: task, description: task }]); if (r.error) return `Error: ${r.error}`; return '\nTask submitted to AI agents! Use /tasks to monitor progress.'; } }; } };
     }
     if (!taskType) { return { type: 'select', title: 'Select what to implement:', options: TASK_TYPES, callback: async (task: string) => { const r = await apiClient.executeOrchestration(projectId, [{ title: task, description: task }]); if (r.error) return `Error: ${r.error}`; return '\nTask submitted to AI agents! Use /tasks to monitor progress.'; } }; }
-    const executeResult = await apiClient.executeOrchestration(projectId, [{ title: taskType, description: taskType }]); if (executeResult.error) return `\nError: ${executeResult.error}`; return '\nTask submitted to AI agents! Use /tasks to monitor progress.';
+    const projectResolved = await resolveProjectId(projectId);
+    if ('error' in projectResolved) return `\nError: ${projectResolved.error}`;
+    const executeResult = await apiClient.executeOrchestration(projectResolved.id, [{ title: taskType, description: taskType }]); if (executeResult.error) return `\nError: ${executeResult.error}`; return '\nTask submitted to AI agents! Use /tasks to monitor progress.';
   }},
   { name: 'orchestrate', description: 'Execute orchestration for pending tasks', usage: '/orchestrate [projectId]', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
     if (!apiClient.isAuthenticated()) return '\nNot authenticated. Use /login or /register first.';
@@ -477,8 +545,10 @@ export const COMMANDS: Command[] = [
       if (optionsResult.length === 0) return '\nNo projects found.';
       return { type: 'select', title: 'Select project:', options: optionsResult, callback: async (id: string) => { const r = await apiClient.getOrchestrationStatus(id); if (r.error) return `Error: ${r.error}`; const s = r.data; return `\nOrchestration Status:\n  Running Agents: ${s?.runningAgents || 0}\n  Pending Tasks: ${s?.pendingTasks || 0}\n  Completed Tasks: ${s?.completedTasks || 0}`; } };
     }
-    const result = await apiClient.getOrchestrationStatus(projectId); if (result.error) return `\nError: ${result.error}`;
-    const s = result.data; return `\nOrchestration Status:\n  Running Agents: ${s?.runningAgents || 0}\n  Pending Tasks: ${s?.pendingTasks || 0}\n  Completed Tasks: ${s?.completedTasks || 0}`;
+    const projectResolved = await resolveProjectId(projectId);
+    if ('error' in projectResolved) return `\nError: ${projectResolved.error}`;
+    const result = await apiClient.getOrchestrationStatus(projectResolved.id); if (result.error) return `\nError: ${result.error}`;
+    const s = result.data; return `\nOrchestration Status:\n  Running Agents: ${s?.runningAgents || 0}\n  Pending Tasks: ${s?.pendingTasks || 0}\n  Running Tasks: ${s?.runningTasks || 0}\n  Completed Tasks: ${s?.completedTasks || 0}\n  Failed Tasks: ${s?.failedTasks || 0}\n  Total Tasks: ${s?.totalTasks || 0}`;
   }},
   { name: 'provider', description: 'Switch LLM provider', usage: '/provider [providerName] [model]', aliases: ['model'], handler: async (args: string[]): Promise<string | InteractiveCommand> => {
     if (!apiClient.isAuthenticated()) return '\nNot authenticated. Use /login or /register first.';
@@ -488,6 +558,7 @@ export const COMMANDS: Command[] = [
       const expired = handleSessionExpired(result);
       if (expired) return expired;
       if (result.error) return `\nError: ${result.error}`;
+      await (globalThis as { __orionRefreshModel?: () => Promise<void> }).__orionRefreshModel?.();
       return `\nProvider switched to ${result.data?.provider.name} (${result.data?.provider.model})`;
     }
     const currentResult = await apiClient.getCurrentProvider();
@@ -527,6 +598,7 @@ export const COMMANDS: Command[] = [
                   const model = modelValue || undefined;
                   const switchResult = await apiClient.setProvider(providerName, apiKey, model);
                   if (switchResult.error) return `\nError: ${switchResult.error}`;
+                  await (globalThis as { __orionRefreshModel?: () => Promise<void> }).__orionRefreshModel?.();
                   return `\nSwitched to ${providerInfo.displayName} (${switchResult.data?.provider.model})`;
                 }
               };
@@ -541,6 +613,7 @@ export const COMMANDS: Command[] = [
             const model = modelValue || undefined;
             const switchResult = await apiClient.setProvider(providerName, undefined, model);
             if (switchResult.error) return `\nError: ${switchResult.error}`;
+            await (globalThis as { __orionRefreshModel?: () => Promise<void> }).__orionRefreshModel?.();
             return `\nSwitched to ${providerInfo?.displayName || providerName} (${switchResult.data?.provider.model})`;
           }
         };
