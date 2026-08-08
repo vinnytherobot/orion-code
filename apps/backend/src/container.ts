@@ -17,6 +17,7 @@ import {
   createUnitOfWork,
   ExecutionLogRepository,
   ChatMessageRepository,
+  ChatSessionRepository,
 } from '@orion/infrastructure';
 import {
   PlanUseCase,
@@ -35,7 +36,10 @@ export type AppDeps = {
   taskRepository: TaskRepository;
   agentRepository: AgentRepository;
   chatMessageRepository: ChatMessageRepository;
+  chatSessionRepository: ChatSessionRepository;
   providerUseCase: ProviderUseCase;
+  agentExecutor: AgentExecutor;
+  userRepository: UserDomainRepository;
   generateId: () => string;
   now: () => Date;
 };
@@ -148,7 +152,10 @@ export function buildDeps(jwtSecret: string): AppDeps {
     taskRepository,
     agentRepository,
     chatMessageRepository: new ChatMessageRepository(),
+    chatSessionRepository: new ChatSessionRepository(),
     providerUseCase,
+    agentExecutor,
+    userRepository,
     generateId,
     now,
   };
