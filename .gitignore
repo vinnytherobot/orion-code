@@ -29,6 +29,9 @@ Thumbs.db
 # MiMoCode
 .mimocode/
 
+# Claude code
+.claude
+
 # Orion
 .orion/
 

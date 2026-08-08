@@ -16,6 +16,7 @@ import {
   InMemoryEventBus,
   createUnitOfWork,
   ExecutionLogRepository,
+  ChatMessageRepository,
 } from '@orion/infrastructure';
 import {
   PlanUseCase,
@@ -33,6 +34,7 @@ export type AppDeps = {
   orchestrator: Orchestrator;
   taskRepository: TaskRepository;
   agentRepository: AgentRepository;
+  chatMessageRepository: ChatMessageRepository;
   providerUseCase: ProviderUseCase;
   generateId: () => string;
   now: () => Date;
@@ -145,6 +147,7 @@ export function buildDeps(jwtSecret: string): AppDeps {
     orchestrator,
     taskRepository,
     agentRepository,
+    chatMessageRepository: new ChatMessageRepository(),
     providerUseCase,
     generateId,
     now,
