@@ -25,6 +25,10 @@ export class AppError extends Error {
     return new AppError(message, 'CONFLICT', 409);
   }
 
+  static validation(message: string): AppError {
+    return new AppError(message, 'VALIDATION', 400);
+  }
+
   static internal(message = 'Internal server error'): AppError {
     return new AppError(message, 'INTERNAL_ERROR', 500);
   }

@@ -7,6 +7,8 @@ export interface TaskProps {
   projectId: string;
   title: string;
   description: string;
+  /** Which specialist agent role should execute this task (planner, backend, qa, ...). */
+  role: string;
   status: TaskStatus;
   assignedAgentId: string | null;
   parentTaskId: string | null;
@@ -19,12 +21,13 @@ export interface TaskProps {
 export class Task {
   private constructor(private props: TaskProps) {}
 
-  static create(input: { projectId: string; title: string; description: string; parentTaskId?: string }): Task {
+  static create(input: { projectId: string; title: string; description: string; parentTaskId?: string; role?: string }): Task {
     return new Task({
       id: TaskId.generate(),
       projectId: input.projectId,
       title: input.title,
       description: input.description,
+      role: input.role ?? 'backend',
       status: TaskStatus.pending(),
       assignedAgentId: null,
       parentTaskId: input.parentTaskId ?? null,
@@ -53,6 +56,15 @@ export class Task {
 
   get description(): string {
     return this.props.description;
+  }
+
+  get role(): string {
+    return this.props.role;
+  }
+
+  setRole(role: string): void {
+    this.props.role = role;
+    this.props.updatedAt = new Date();
   }
 
   get status(): TaskStatus {

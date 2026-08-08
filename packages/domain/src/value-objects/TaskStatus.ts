@@ -66,7 +66,7 @@ export class TaskStatus {
 
   canTransitionTo(next: TaskStatus): boolean {
     const transitions: Record<TaskStatusValue, TaskStatusValue[]> = {
-      pending: ['planning', 'cancelled'],
+      pending: ['planning', 'running', 'cancelled'],
       planning: ['running', 'cancelled'],
       running: ['waiting', 'review', 'testing', 'completed', 'failed', 'cancelled'],
       waiting: ['running', 'cancelled'],
