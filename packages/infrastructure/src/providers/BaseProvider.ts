@@ -33,4 +33,14 @@ export interface ILLMProvider {
     config?: Partial<LLMProviderConfig>,
   ): Promise<Result<LLMResponse, AppError>>;
   isAvailable(): Promise<boolean>;
+
+  /**
+   * Optional streaming variant of `chat`. Yields content chunks as they
+   * arrive. Providers that don't support streaming should omit this —
+   * callers fall back to `chat()` when it's undefined.
+   */
+  chatStream?(
+    messages: LLMMessage[],
+    config?: Partial<LLMProviderConfig>,
+  ): AsyncGenerator<string, void, undefined>;
 }

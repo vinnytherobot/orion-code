@@ -39,6 +39,15 @@ export class ChatMessageRepository {
     return rows.reverse();
   }
 
+  async listBySession(sessionId: string): Promise<ChatMessage[]> {
+    const rows = await this.db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.sessionId, sessionId))
+      .orderBy(desc(chatMessages.createdAt));
+    return rows.reverse();
+  }
+
   async listByUserAndProject(
     userId: string,
     projectId: string | null,

@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppDeps } from '../container.js';
+import { createProvider, getProviderInfo } from '@orion/infrastructure';
 
 export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
-  const { authUseCase } = deps;
+  const { authUseCase, userRepository, agentExecutor } = deps;
 
   app.post(
     '/api/auth/register',
@@ -36,6 +37,24 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
       const result = await authUseCase.login({ email, password });
       if (result.isFail()) {
         return reply.status(401).send({ error: result.error.message });
+      }
+
+      // Sync the global executor with the user's saved provider
+      try {
+        const userConfig = await userRepository.getProviderConfig(result.value.user.id);
+        if (userConfig) {
+          const info = getProviderInfo(userConfig.name);
+          if (info) {
+            const provider = createProvider(userConfig.name, {
+              apiKey: userConfig.apiKey || 'ollama',
+              baseUrl: info.defaultBaseUrl,
+              model: userConfig.model || info.defaultModel,
+            });
+            agentExecutor.setProvider(provider);
+          }
+        }
+      } catch {
+        // Non-fatal: login still succeeds even if provider sync fails
       }
 
       return reply.send({ user: result.value.user, tokens: result.value.tokens });

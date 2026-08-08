@@ -77,6 +77,17 @@ export const executionLogs = pgTable('execution_logs', {
   createdAt: timestamp('created_at').notNull(),
 });
 
+// Chat sessions table - each conversation with the tech lead is a session.
+export const chatSessions = pgTable('chat_sessions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  title: text('title').notNull().default('New Chat'),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+});
+
 // Chat messages table - persists the conversation with the "tech lead" agent.
 // projectId is optional so a user can have an unscoped chat (global) and
 // per-project chats for orchestration context.
@@ -86,6 +97,9 @@ export const chatMessages = pgTable('chat_messages', {
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   projectId: text('project_id').references(() => projects.id, {
+    onDelete: 'cascade',
+  }),
+  sessionId: text('session_id').references(() => chatSessions.id, {
     onDelete: 'cascade',
   }),
   role: text('role').notNull(), // 'user' | 'assistant' | 'system'
@@ -102,5 +116,7 @@ export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
 export type ExecutionLog = typeof executionLogs.$inferSelect;
 export type NewExecutionLog = typeof executionLogs.$inferInsert;
+export type ChatSession = typeof chatSessions.$inferSelect;
+export type NewChatSession = typeof chatSessions.$inferInsert;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type NewChatMessage = typeof chatMessages.$inferInsert;

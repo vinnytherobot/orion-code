@@ -115,6 +115,14 @@ export interface ToolCall {
   result?: unknown;
 }
 
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
 export interface Session {
   id: string;
   projectId: string;

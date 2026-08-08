@@ -93,8 +93,14 @@ async function main(): Promise<void> {
   await fastify.register((instance) => taskRoutes(instance, deps));
   await fastify.register((instance) => agentRoutes(instance, deps));
   await fastify.register((instance) => orchestrationRoutes(instance, deps));
-  await fastify.register((instance) => chatRoutes(instance, { chatMessageRepository: deps.chatMessageRepository }));
-  await fastify.register((instance) => providerRoutes(instance, deps.providerUseCase));
+  await fastify.register((instance) =>
+    chatRoutes(instance, {
+      chatMessageRepository: deps.chatMessageRepository,
+      chatSessionRepository: deps.chatSessionRepository,
+      agentExecutor: deps.agentExecutor,
+    })
+  );
+  await fastify.register((instance) => providerRoutes(instance, deps));
 
   // Log every unhandled 4xx/5xx with route + stack so a "Bad Request"
   // bubbling out of a plugin (helmet/rate-limit/etc.) shows up in the

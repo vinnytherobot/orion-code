@@ -114,6 +114,13 @@ const migrations = [
     content TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
+  `CREATE TABLE IF NOT EXISTS chat_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL DEFAULT 'New Chat',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  )`,
 
   // === Indexes ===
   'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
@@ -132,6 +139,8 @@ const migrations = [
 
   // === Idempotent additive migrations (for upgrading existing DBs) ===
   'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT \'backend\'',
+  'ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS session_id TEXT REFERENCES chat_sessions(id) ON DELETE CASCADE',
+  'ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_config JSONB',
 ];
 
 /**

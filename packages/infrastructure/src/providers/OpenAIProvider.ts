@@ -88,4 +88,70 @@ export class OpenAIProvider implements ILLMProvider {
       return false;
     }
   }
+
+  async *chatStream(
+    messages: LLMMessage[],
+    overrides?: Partial<LLMProviderConfig>,
+  ): AsyncGenerator<string, void, undefined> {
+    const model = overrides?.model ?? this.defaultModel;
+    const maxTokens = overrides?.maxTokens ?? this.config.maxTokens ?? 4096;
+    const temperature = overrides?.temperature ?? this.config.temperature ?? 0.7;
+    const baseUrl = overrides?.baseUrl ?? this.config.baseUrl ?? 'https://api.openai.com/v1';
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`OpenAI API error (${response.status}): ${body}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          const data = trimmed.slice(6);
+          if (data === '[DONE]') return;
+
+          try {
+            const parsed = JSON.parse(data) as {
+              choices?: Array<{ delta?: { content?: string } }>;
+            };
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) yield content;
+          } catch {
+            // skip malformed JSON lines
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
 }

@@ -2,6 +2,7 @@ import { Box, Text, measureElement, useApp, useStdout } from 'ink';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import stringWidth from 'string-width';
+import { ChatView } from './components/ChatView.js';
 import { InputPrompt } from './components/InputPrompt.js';
 import { MessageHistory } from './components/MessageHistory.js';
 import { PromptInput } from './components/PromptInput.js';
@@ -61,6 +62,7 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
   // user switches providers — fixes the "not-set" header bug.
   const [model, setModel] = useState<string>(initialModel);
   const [interactiveMenu, setInteractiveMenu] = useState<InteractiveCommand | null>(null);
+  const [chatMode, setChatMode] = useState(false);
   const [historyHint, setHistoryHint] = useState<{ showHint: boolean; count: number }>({
     showHint: false,
     count: 0,
@@ -176,10 +178,13 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
   }, []);
 
   // Resolve the current provider/model on mount so the header reflects
-  // the backend state, not the placeholder default.
+  // the backend state, not the placeholder default. Also syncs the
+  // backend executor with the user's saved provider preference.
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Sync provider from user's DB config (no-op if not authenticated)
+      await apiClient.syncProvider().catch(() => undefined);
       const result = await apiClient.getCurrentProvider();
       if (cancelled) return;
       const m = result.data?.provider?.model;
@@ -208,6 +213,20 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
         return updated;
       }
       return [...prev, msg];
+    });
+  }, []);
+
+  const appendToLastMessage = useCallback((chunk: string) => {
+    setMessages((prev) => {
+      if (prev.length === 0) return prev;
+      const updated = [...prev];
+      const lastIdx = updated.length - 1;
+      const last = updated[lastIdx]!;
+      updated[lastIdx] = {
+        ...last,
+        content: last.content === 'Processing...' ? chunk : last.content + chunk,
+      };
+      return updated;
     });
   }, []);
 
@@ -296,6 +315,11 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
           return;
         }
 
+        if (result === '__CHAT__') {
+          setChatMode(true);
+          return;
+        }
+
         if (result && typeof result === 'object' && 'type' in result) {
           setInteractiveMenu(result as InteractiveCommand);
           return;
@@ -308,41 +332,17 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
       }
 
       addMessage('user', trimmed);
-
-      // Persist the user message and echo back a placeholder while the
-      // orchestrator/assistant streams a reply. Without this hook the
-      // TUI was a UI shell only — typing a message just printed a
-      // hardcoded "not yet connected" string.
       addMessage('system', 'Processing...');
 
       try {
-        const sendResult = await apiClient.sendChat('user', trimmed);
-        if (sendResult.error || !sendResult.data) {
-          addMessage(
-            'system',
-            `Failed to send message: ${sendResult.error ?? 'unknown error'}`,
-          );
-          return;
+        let gotChunk = false;
+        for await (const chunk of apiClient.sendChatStream(trimmed)) {
+          appendToLastMessage(chunk);
+          gotChunk = true;
         }
-        // Try to load history and append the assistant reply once it
-        // arrives. The backend currently has no streaming endpoint, so we
-        // poll briefly to give the planner/orchestrator a chance to write.
-        for (let attempt = 0; attempt < 5; attempt++) {
-          await new Promise((r) => setTimeout(r, 1500));
-          const history = await apiClient.listChat(undefined, 20);
-          if (!history.data) continue;
-          const assistant = history.data.messages.find(
-            (m) => m.role === 'assistant' && m.userId === sendResult.data!.message.userId,
-          );
-          if (assistant) {
-            addMessage('system', assistant.content);
-            return;
-          }
+        if (!gotChunk) {
+          addMessage('system', '(empty response)');
         }
-        addMessage(
-          'system',
-          'Message saved. The orchestrator will reply once it processes the request.',
-        );
       } catch (err) {
         addMessage(
           'system',
@@ -350,8 +350,12 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
         );
       }
     },
-    [addMessage, exit],
+    [addMessage, exit, appendToLastMessage],
   );
+
+  if (chatMode) {
+    return <ChatView onExit={() => setChatMode(false)} />;
+  }
 
   if (interactiveMenu) {
     if (interactiveMenu.type === 'select') {

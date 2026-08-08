@@ -1,2 +1,2 @@
 - Fix task bugs
-- Create Chat mode (chat with the tech lead of agents)
+- ~~Create Chat mode (chat with the tech lead of agents)~~ ✅
