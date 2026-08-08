@@ -124,6 +124,19 @@ interface ProviderResponse {
   provider: { name: string; model: string };
 }
 
+interface ChatMessage {
+  id: string;
+  userId: string;
+  projectId: string | null;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: string;
+}
+
+interface ChatListResponse {
+  messages: ChatMessage[];
+}
+
 class ApiClient {
   private baseUrl: string;
   private accessToken: string | null = null;
@@ -218,7 +231,15 @@ class ApiClient {
 
       const data = (await response.json()) as Record<string, unknown>;
       if (!response.ok) {
-        return { error: this.formatError(data.error) };
+        // Fastify returns { error: "Bad Request", message: "detailed msg" } for
+        // parser/plugin errors. Prefer the more specific `message` field when
+        // `error` is a generic status phrase like "Bad Request" or "Internal Server Error".
+        const rawError = data.error;
+        const errorMsg = typeof rawError === 'string' && typeof data.message === 'string'
+          && rawError !== data.message
+          ? data.message
+          : rawError;
+        return { error: this.formatError(errorMsg) };
       }
       return { data: data as T };
     } catch (error) {
@@ -394,12 +415,17 @@ class ApiClient {
   async resetAgent(agentId: string) {
     return this.request<AgentResponse>(`/api/agents/${agentId}/reset`, {
       method: 'POST',
+      body: '{}',
     });
   }
 
   async initializeAgents(projectId: string) {
+    if (!projectId) {
+      return { error: 'No project selected' };
+    }
     return this.request<AgentListResponse>(`/api/agents/initialize/${projectId}`, {
       method: 'POST',
+      body: '{}',
     });
   }
 
@@ -414,7 +440,14 @@ class ApiClient {
   }
 
   async getOrchestrationStatus(projectId: string) {
-    return this.request<{ runningAgents: number; pendingTasks: number; completedTasks: number }>(`/api/projects/${projectId}/orchestration/status`);
+    return this.request<{
+      runningAgents: number;
+      pendingTasks: number;
+      runningTasks: number;
+      completedTasks: number;
+      failedTasks: number;
+      totalTasks: number;
+    }>(`/api/projects/${projectId}/orchestration/status`);
   }
 
 // Provider endpoints
@@ -436,6 +469,88 @@ class ApiClient {
 // Health check
   async health() {
     return this.request<HealthResponse>('/api/health');
+  }
+
+  // Chat endpoints (used by the chat mode in the TUI).
+  async listChat(projectId?: string, limit?: number) {
+    const params = new URLSearchParams();
+    if (projectId) params.set('projectId', projectId);
+    if (limit) params.set('limit', String(limit));
+    const query = params.toString();
+    return this.request<ChatListResponse>(`/api/chat${query ? `?${query}` : ''}`);
+  }
+
+  async sendChat(role: 'user' | 'assistant' | 'system', content: string, projectId?: string) {
+    return this.request<{ message: ChatMessage }>('/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({ role, content, projectId }),
+    });
+  }
+
+  async clearChat() {
+    return this.request<{ success: boolean }>('/api/chat', { method: 'DELETE' });
+  }
+
+  /**
+   * Subscribes to the Server-Sent Events stream of orchestration
+   * events. Returns an `EventSource` instance so the caller can call
+   * `.close()` on unmount. If the API has no SSE endpoint yet, this
+   * falls back to no-op (returns null) so older builds don't crash.
+   */
+  subscribeOrchestration(
+    projectId: string,
+    handlers: {
+      onReady?: () => void;
+      onTask?: (payload: unknown) => void;
+      onOrchestrator?: (payload: unknown) => void;
+      onPlanCompleted?: (payload: unknown) => void;
+      onPlanFailed?: (payload: unknown) => void;
+      onError?: (err: Event) => void;
+    },
+  ): { close: () => void } | null {
+    const url = `${this.baseUrl}/api/projects/${projectId}/orchestration/events`;
+    try {
+      const es = new EventSource(url, { withCredentials: false });
+      es.addEventListener('ready', () => handlers.onReady?.());
+      es.addEventListener('task', (ev) => {
+        try {
+          handlers.onTask?.(JSON.parse((ev as MessageEvent).data));
+        } catch {
+          /* ignore parse */
+        }
+      });
+      es.addEventListener('orchestrator', (ev) => {
+        try {
+          handlers.onOrchestrator?.(JSON.parse((ev as MessageEvent).data));
+        } catch {
+          /* ignore parse */
+        }
+      });
+      es.addEventListener('plan:completed', (ev) => {
+        try {
+          handlers.onPlanCompleted?.(JSON.parse((ev as MessageEvent).data));
+        } catch {
+          /* ignore parse */
+        }
+      });
+      es.addEventListener('plan:failed', (ev) => {
+        try {
+          handlers.onPlanFailed?.(JSON.parse((ev as MessageEvent).data));
+        } catch {
+          /* ignore parse */
+        }
+      });
+      es.onerror = (ev) => {
+        handlers.onError?.(ev);
+        // Don't auto-close; let the server keep the connection open
+        // and rely on the browser to retry on disconnect.
+      };
+      return {
+        close: () => es.close(),
+      };
+    } catch {
+      return null;
+    }
   }
 
   isAuthenticated(): boolean {
