@@ -3,6 +3,12 @@ import { getDatabase, schema } from '../database.js';
 import type { IUserRepository } from '@orion/domain';
 import { User, UserId, Email, PasswordHash } from '@orion/domain';
 
+export interface UserProviderConfig {
+  name: string;
+  apiKey?: string;
+  model?: string;
+}
+
 export class UserDomainRepository implements IUserRepository {
   private db = getDatabase();
 
@@ -51,6 +57,23 @@ export class UserDomainRepository implements IUserRepository {
 
   async delete(id: string): Promise<void> {
     await this.db.delete(schema.users).where(eq(schema.users.id, id));
+  }
+
+  async getProviderConfig(userId: string): Promise<UserProviderConfig | null> {
+    const result = await this.db
+      .select({ providerConfig: schema.users.providerConfig })
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+    const config = result[0]?.providerConfig;
+    return config ?? null;
+  }
+
+  async setProviderConfig(userId: string, config: UserProviderConfig): Promise<void> {
+    await this.db
+      .update(schema.users)
+      .set({ providerConfig: config, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
   }
 
   private toDomain(row: typeof schema.users.$inferSelect): User {

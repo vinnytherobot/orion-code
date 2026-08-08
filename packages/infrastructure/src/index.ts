@@ -78,6 +78,8 @@ export { TaskRepository } from './db/repositories/task.repository.js';
 export { ProjectDomainRepository } from './db/repositories/project-domain.repository.js';
 export { ExecutionLogRepository } from './db/repositories/execution-log.repository.js';
 export { ChatMessageRepository } from './db/repositories/chat-message.repository.js';
+export { ChatSessionRepository } from './db/repositories/chat-session.repository.js';
+export type { ChatSessionWithCount } from './db/repositories/chat-session.repository.js';
 
 // Domain-Aware Auth Repositories
 export { UserDomainRepository } from './db/repositories/user-domain.repository.js';
