@@ -456,6 +456,13 @@ class ApiClient {
     });
   }
 
+  async executeOrchestrationRequest(projectId: string, request: string) {
+    return this.request<{ success: boolean }>(`/api/projects/${projectId}/orchestration/execute`, {
+      method: 'POST',
+      body: JSON.stringify({ request }),
+    });
+  }
+
   async getOrchestrationStatus(projectId: string) {
     return this.request<{
       runningAgents: number;
@@ -659,10 +666,100 @@ class ApiClient {
   }
 
   /**
+   * Subscribes to real-time agent output stream using fetch + manual
+   * SSE parsing (Node.js has no built-in EventSource).
+   */
+  subscribeAgentOutput(
+    projectId: string,
+    handlers: {
+      onReady?: () => void;
+      onAgentOutput?: (payload: { type: string; agentId: string; agentName: string; role: string; content: string; turn: number; taskId?: string }) => void;
+      onTaskStarted?: (payload: unknown) => void;
+      onTaskCompleted?: (payload: unknown) => void;
+      onTaskFailed?: (payload: unknown) => void;
+      onPlanCompleted?: (payload: unknown) => void;
+      onPlanFailed?: (payload: unknown) => void;
+      onError?: (err: Error) => void;
+    },
+  ): { close: () => void } | null {
+    const url = `${this.baseUrl}/api/projects/${projectId}/orchestration/stream`;
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers.Authorization = `Bearer ${this.accessToken}`;
+    }
+
+    const controller = new AbortController();
+    let closed = false;
+
+    const parseSSE = async () => {
+      try {
+        const response = await fetch(url, {
+          headers: { ...headers, Accept: 'text/event-stream' },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          handlers.onError?.(new Error(`SSE ${response.status}`));
+          return;
+        }
+        const reader = response.body?.getReader();
+        if (!reader) {
+          handlers.onError?.(new Error('No response body'));
+          return;
+        }
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentEvent = '';
+
+        while (!closed) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (currentEvent === 'ready') {
+                handlers.onReady?.();
+              } else if (currentEvent === 'agent:output') {
+                try { handlers.onAgentOutput?.(JSON.parse(data)); } catch { /* ignore */ }
+              } else if (currentEvent === 'task:started') {
+                try { handlers.onTaskStarted?.(JSON.parse(data)); } catch { /* ignore */ }
+              } else if (currentEvent === 'task:completed') {
+                try { handlers.onTaskCompleted?.(JSON.parse(data)); } catch { /* ignore */ }
+              } else if (currentEvent === 'task:failed') {
+                try { handlers.onTaskFailed?.(JSON.parse(data)); } catch { /* ignore */ }
+              } else if (currentEvent === 'plan:completed') {
+                try { handlers.onPlanCompleted?.(JSON.parse(data)); } catch { /* ignore */ }
+              } else if (currentEvent === 'plan:failed') {
+                try { handlers.onPlanFailed?.(JSON.parse(data)); } catch { /* ignore */ }
+              }
+              currentEvent = '';
+            }
+          }
+        }
+      } catch (err) {
+        if (!closed && err instanceof Error && err.name !== 'AbortError') {
+          handlers.onError?.(err);
+        }
+      }
+    };
+
+    parseSSE();
+    return {
+      close: () => {
+        closed = true;
+        controller.abort();
+      },
+    };
+  }
+
+  /**
    * Subscribes to the Server-Sent Events stream of orchestration
-   * events. Returns an `EventSource` instance so the caller can call
-   * `.close()` on unmount. If the API has no SSE endpoint yet, this
-   * falls back to no-op (returns null) so older builds don't crash.
+   * events using fetch + manual SSE parsing.
    */
   subscribeOrchestration(
     projectId: string,
@@ -672,52 +769,78 @@ class ApiClient {
       onOrchestrator?: (payload: unknown) => void;
       onPlanCompleted?: (payload: unknown) => void;
       onPlanFailed?: (payload: unknown) => void;
-      onError?: (err: Event) => void;
+      onError?: (err: Error) => void;
     },
   ): { close: () => void } | null {
     const url = `${this.baseUrl}/api/projects/${projectId}/orchestration/events`;
-    try {
-      const es = new EventSource(url, { withCredentials: false });
-      es.addEventListener('ready', () => handlers.onReady?.());
-      es.addEventListener('task', (ev) => {
-        try {
-          handlers.onTask?.(JSON.parse((ev as MessageEvent).data));
-        } catch {
-          /* ignore parse */
-        }
-      });
-      es.addEventListener('orchestrator', (ev) => {
-        try {
-          handlers.onOrchestrator?.(JSON.parse((ev as MessageEvent).data));
-        } catch {
-          /* ignore parse */
-        }
-      });
-      es.addEventListener('plan:completed', (ev) => {
-        try {
-          handlers.onPlanCompleted?.(JSON.parse((ev as MessageEvent).data));
-        } catch {
-          /* ignore parse */
-        }
-      });
-      es.addEventListener('plan:failed', (ev) => {
-        try {
-          handlers.onPlanFailed?.(JSON.parse((ev as MessageEvent).data));
-        } catch {
-          /* ignore parse */
-        }
-      });
-      es.onerror = (ev) => {
-        handlers.onError?.(ev);
-        // Don't auto-close; let the server keep the connection open
-        // and rely on the browser to retry on disconnect.
-      };
-      return {
-        close: () => es.close(),
-      };
-    } catch {
-      return null;
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers.Authorization = `Bearer ${this.accessToken}`;
     }
+
+    const controller = new AbortController();
+    let closed = false;
+
+    const parseSSE = async () => {
+      try {
+        const response = await fetch(url, {
+          headers: { ...headers, Accept: 'text/event-stream' },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          handlers.onError?.(new Error(`SSE ${response.status}`));
+          return;
+        }
+        const reader = response.body?.getReader();
+        if (!reader) {
+          handlers.onError?.(new Error('No response body'));
+          return;
+        }
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentEvent = '';
+
+        while (!closed) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (currentEvent === 'ready') {
+                handlers.onReady?.();
+              } else if (currentEvent === 'task') {
+                try { handlers.onTask?.(JSON.parse(data)); } catch { /* ignore */ }
+              } else if (currentEvent === 'orchestrator') {
+                try { handlers.onOrchestrator?.(JSON.parse(data)); } catch { /* ignore */ }
+              } else if (currentEvent === 'plan:completed') {
+                try { handlers.onPlanCompleted?.(JSON.parse(data)); } catch { /* ignore */ }
+              } else if (currentEvent === 'plan:failed') {
+                try { handlers.onPlanFailed?.(JSON.parse(data)); } catch { /* ignore */ }
+              }
+              currentEvent = '';
+            }
+          }
+        }
+      } catch (err) {
+        if (!closed && err instanceof Error && err.name !== 'AbortError') {
+          handlers.onError?.(err);
+        }
+      }
+    };
+
+    parseSSE();
+    return {
+      close: () => {
+        closed = true;
+        controller.abort();
+      },
+    };
   }
 
   isAuthenticated(): boolean {

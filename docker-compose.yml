@@ -24,21 +24,19 @@ services:
       dockerfile: Dockerfile
     container_name: orion-api
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    network_mode: host
     environment:
       NODE_ENV: production
       PORT: 3000
       HOST: 0.0.0.0
-      DATABASE_URL: postgresql://orion:orion@postgres:5432/orion
+      DATABASE_URL: postgresql://orion:orion@localhost:5432/orion
       JWT_SECRET: ${JWT_SECRET}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      # LLM provider: prefer an explicit provider via env over the local config file.
-      # Ollama is expected to run on the HOST (installed by the user), not in Docker.
-      ORION_PROVIDER: ${ORION_PROVIDER:-ollama}
-      ORION_OLLAMA_BASE_URL: ${ORION_OLLAMA_BASE_URL:-http://127.0.0.1:11434}
-      ORION_PROVIDER_API_KEY: ${ORION_PROVIDER_API_KEY:-}
+      ORION_OLLAMA_BASE_URL: http://127.0.0.1:11434
+      ORION_PROJECT_PATH: /app/project
+    volumes:
+      - .:/app/project
     depends_on:
       postgres:
         condition: service_healthy

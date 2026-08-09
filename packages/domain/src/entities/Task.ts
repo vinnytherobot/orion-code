@@ -67,6 +67,11 @@ export class Task {
     this.props.updatedAt = new Date();
   }
 
+  setDependencies(deps: string[]): void {
+    this.props.dependencies = [...deps];
+    this.props.updatedAt = new Date();
+  }
+
   get status(): TaskStatus {
     return this.props.status;
   }

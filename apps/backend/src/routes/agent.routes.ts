@@ -96,30 +96,36 @@ export async function agentRoutes(app: FastifyInstance, deps: AppDeps) {
         });
       }
 
+      // Create 3 agents per role to enable parallel execution.
+      // The orchestrator's maxConcurrentAgents is 4, so 3 agents per
+      // role ensures most waves can run fully parallel.
+      const AGENTS_PER_ROLE = 3;
       const agentDefinitions = [
-        { name: 'Planner', role: 'planner', permissions: [] },
-        { name: 'Architect', role: 'architect', permissions: [] },
-        { name: 'Backend', role: 'backend', permissions: ['src/'] },
-        { name: 'Database', role: 'database', permissions: ['src/infrastructure/database/'] },
-        { name: 'Frontend', role: 'frontend', permissions: ['src/presentation/'] },
-        { name: 'QA', role: 'qa', permissions: ['src/', 'tests/'] },
-        { name: 'Reviewer', role: 'reviewer', permissions: ['src/'] },
-        { name: 'DevOps', role: 'devops', permissions: ['docker/', '.github/'] },
-        { name: 'Security', role: 'security', permissions: ['src/'] },
-        { name: 'Documentation', role: 'documentation', permissions: ['docs/', 'README.md'] },
+        { role: 'planner', permissions: [] },
+        { role: 'architect', permissions: [] },
+        { role: 'backend', permissions: ['src/'] },
+        { role: 'database', permissions: ['src/infrastructure/database/'] },
+        { role: 'frontend', permissions: ['src/presentation/'] },
+        { role: 'qa', permissions: ['src/', 'tests/'] },
+        { role: 'reviewer', permissions: ['src/'] },
+        { role: 'devops', permissions: ['docker/', '.github/'] },
+        { role: 'security', permissions: ['src/'] },
+        { role: 'documentation', permissions: ['docs/', 'README.md'] },
       ];
 
       const createdAgents: Array<{ id: string; name: string; role: string }> = [];
       for (const def of agentDefinitions) {
-        const agent = Agent.create({
-          id: randomUUID(),
-          name: def.name,
-          projectId,
-          role: def.role,
-          permissions: def.permissions,
-        });
-        await agentRepo.save(agent);
-        createdAgents.push({ id: agent.id, name: agent.name, role: agent.role });
+        for (let i = 0; i < AGENTS_PER_ROLE; i++) {
+          const agent = Agent.create({
+            id: randomUUID(),
+            name: `${def.role.charAt(0).toUpperCase() + def.role.slice(1)}-${i + 1}`,
+            projectId,
+            role: def.role,
+            permissions: def.permissions,
+          });
+          await agentRepo.save(agent);
+          createdAgents.push({ id: agent.id, name: agent.name, role: agent.role });
+        }
       }
 
       return reply.send({ agents: createdAgents });

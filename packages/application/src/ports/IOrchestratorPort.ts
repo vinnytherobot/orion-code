@@ -4,7 +4,7 @@ import type { TaskResponseDTO } from '../dtos/TaskDTO.js';
 
 export interface ExecutePlanInput {
   projectId: string;
-  tasks: Array<{ title: string; description: string }>;
+  tasks: Array<{ title: string; description: string; role?: string; dependencies?: string[] }>;
 }
 
 export interface IOrchestratorPort {

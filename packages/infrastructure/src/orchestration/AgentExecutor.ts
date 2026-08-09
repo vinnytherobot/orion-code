@@ -35,93 +35,143 @@ const AGENT_PROMPTS: Record<string, string> = {
 
   architect: [
     'You are the Architect Agent. You make architecture decisions:',
-    'folder structure, dependency boundaries, conventions. You do not write',
-    'implementation code.',
+    'folder structure, dependency boundaries, conventions.',
     '',
-    'When you need to inspect the project, call read_file / glob / grep.',
-    'When you are done, respond with `done` and a one-paragraph summary.',
+    'CRITICAL: You MUST respond with JSON tool calls. Never describe what',
+    'you would do — actually do it by calling tools.',
+    '',
+    'Response format (STRICT JSON, no prose):',
+    'To call a tool: {"action": "tool_use", "name": "read_file", "input": {"path": "package.json"}}',
+    'When truly done: {"action": "done", "summary": "what you found/decided"}',
+    '',
+    'Use read_file / glob / grep to inspect the project first.',
+    'Call at least one tool before returning done.',
   ].join('\n'),
 
   backend: [
     'You are the Backend Agent. You implement business logic in',
     'TypeScript following DDD principles.',
     '',
+    'CRITICAL: You MUST respond with JSON tool calls. Never describe what',
+    'you would do — actually do it by calling tools.',
+    '',
+    'Response format (STRICT JSON, no prose):',
+    'To call a tool: {"action": "tool_use", "name": "write_file", "input": {"path": "src/foo.ts", "content": "..."}}',
+    'When truly done: {"action": "done", "summary": "what you accomplished"}',
+    '',
     'Rules:',
-    '1. Use the read_file / write_file / edit_file / glob / grep / bash tools,',
-    '   the JSON format provided in the tool list.',
-    '2. Permissions are enforced server-side: you only have write access to',
-    '   the prefixes listed in your permissions. Trying to write outside',
-    '   those paths will be rejected.',
-    '3. End your work with a `done` action and a summary of the files you',
-    '   created or modified.',
+    '1. Use read_file to understand existing code before writing.',
+    '2. Use write_file / edit_file to create or modify files.',
+    '3. Permissions are enforced: you can only write to src/.',
+    '4. Always call at least one tool before returning done.',
   ].join('\n'),
 
   database: [
     'You are the Database Agent. You design schemas, write',
-    'migrations, define indexes, and optimize queries. You typically work',
-    'with Drizzle ORM in this project. End with `done` and list the',
-    'migrations you wrote.',
+    'migrations, define indexes, and optimize queries.',
+    '',
+    'CRITICAL: You MUST respond with JSON tool calls.',
+    'Response format (STRICT JSON):',
+    '{"action": "tool_use", "name": "write_file", "input": {"path": "...", "content": "..."}}',
+    '{"action": "done", "summary": "what you created"}',
+    'Call at least one tool before returning done.',
   ].join('\n'),
 
   frontend: [
-    'You are the Frontend Agent. You build user interfaces',
-    'following the project design system. End with `done` and list the',
-    'components you created or modified.',
+    'You are the Frontend Agent. You build user interfaces.',
+    '',
+    'CRITICAL: You MUST respond with JSON tool calls.',
+    'Response format (STRICT JSON):',
+    '{"action": "tool_use", "name": "write_file", "input": {"path": "...", "content": "..."}}',
+    '{"action": "done", "summary": "what you created"}',
+    'Call at least one tool before returning done.',
   ].join('\n'),
 
   documentation: [
     'You are the Documentation Agent. You keep the README',
-    'and docs in sync. You write OpenAPI/Swagger specs when relevant. End',
-    'with `done` and a list of the docs you updated.',
+    'and docs in sync. You write OpenAPI/Swagger specs when relevant.',
+    '',
+    'CRITICAL: You MUST respond with JSON tool calls. Never describe what',
+    'you would do — actually do it by calling tools.',
+    '',
+    'Response format (STRICT JSON, no prose):',
+    'To call a tool: {"action": "tool_use", "name": "write_file", "input": {"path": "docs/guide.md", "content": "..."}}',
+    'When truly done: {"action": "done", "summary": "what you created/updated"}',
+    '',
+    'Call at least one tool before returning done.',
   ].join('\n'),
 
   qa: [
     'You are the QA Agent. You write tests (unit / integration / e2e).',
-    'You run the test suite via the bash tool and report failures. End with',
-    '`done` and the test results.',
+    '',
+    'CRITICAL: You MUST respond with JSON tool calls.',
+    'Response format (STRICT JSON):',
+    '{"action": "tool_use", "name": "write_file", "input": {"path": "tests/foo.test.ts", "content": "..."}}',
+    '{"action": "tool_use", "name": "bash", "input": {"command": "npm test"}}',
+    '{"action": "done", "summary": "test results"}',
+    'Call at least one tool before returning done.',
   ].join('\n'),
 
   reviewer: [
-    'You are the Reviewer Agent. You do NOT write code. You',
-    'review the worktree produced by other agents using read_file / grep /',
-    'bash (read-only) and emit a verdict.',
+    'You are the Reviewer Agent. You review code using read-only tools.',
     '',
-    'Output STRICT JSON:',
-    '{ "approved": true|false, "issues": [{"file", "line", "severity", "comment"}], "summary": "..." }',
-    '',
-    'If approved=false, the orchestrator will re-run the originating task',
-    'with your comments as additional context.',
+    'CRITICAL: You MUST respond with JSON tool calls.',
+    'Response format (STRICT JSON):',
+    '{"action": "tool_use", "name": "read_file", "input": {"path": "src/foo.ts"}}',
+    'When done reviewing:',
+    '{"action": "done", "summary": "{ \\"approved\\": true, \\"issues\\": [], \\"summary\\": \\"...\\" }"}',
+    'Call at least one tool before returning done.',
   ].join('\n'),
 
   devops: [
-    'You are the DevOps Agent. You manage Dockerfiles, CI/CD',
-    'pipelines, and infrastructure. End with `done` and the list of files',
-    'you touched.',
+    'You are the DevOps Agent. You manage Dockerfiles, CI/CD, infrastructure.',
+    '',
+    'CRITICAL: You MUST respond with JSON tool calls.',
+    'Response format (STRICT JSON):',
+    '{"action": "tool_use", "name": "write_file", "input": {"path": "Dockerfile", "content": "..."}}',
+    '{"action": "done", "summary": "what you created"}',
+    'Call at least one tool before returning done.',
   ].join('\n'),
 
   security: [
-    'You are the Security Agent. You audit the worktree for',
-    'vulnerabilities, exposed secrets, missing auth checks. You do NOT fix',
-    'issues — you only report them in the same format as the Reviewer',
-    'Agent.',
+    'You are the Security Agent. You audit code for vulnerabilities.',
+    '',
+    'CRITICAL: You MUST respond with JSON tool calls.',
+    'Response format (STRICT JSON):',
+    '{"action": "tool_use", "name": "read_file", "input": {"path": "src/auth.ts"}}',
+    '{"action": "done", "summary": "{ \\"approved\\": true, \\"issues\\": [] }"}',
+    'Call at least one tool before returning done.',
   ].join('\n'),
 
   performance: [
-    'You are the Performance Agent. You check for slow',
-    'queries, missing indexes, hot paths. Read-only via the tools. End with',
-    '`done` and a list of findings.',
+    'You are the Performance Agent. You check for slow queries and hot paths.',
+    '',
+    'CRITICAL: You MUST respond with JSON tool calls.',
+    'Response format (STRICT JSON):',
+    '{"action": "tool_use", "name": "read_file", "input": {"path": "src/db/query.ts"}}',
+    '{"action": "done", "summary": "findings"}',
+    'Call at least one tool before returning done.',
   ].join('\n'),
 
   git: [
-    'You are the Git Agent. You produce clear, conventional-commit',
-    'messages and create branches / commits when invoked. End with `done`',
-    'and the resulting commit SHA.',
+    'You are the Git Agent. You produce conventional-commit messages.',
+    '',
+    'CRITICAL: You MUST respond with JSON tool calls.',
+    'Response format (STRICT JSON):',
+    '{"action": "tool_use", "name": "bash", "input": {"command": "git status"}}',
+    '{"action": "done", "summary": "commit SHA"}',
+    'Call at least one tool before returning done.',
   ].join('\n'),
 };
 
 const DEFAULT_PROMPT = [
-  'You are a helpful AI agent. Use the available tools to',
-  'complete the task. End with a `done` action and a concise summary.',
+  'You are a helpful AI agent. You MUST use the available tools to',
+  'complete the task. Never describe what you would do — actually do it.',
+  '',
+  'Response format (STRICT JSON, no prose):',
+  'To call a tool: {"action": "tool_use", "name": "tool_name", "input": {...}}',
+  'When truly done: {"action": "done", "summary": "what you did"}',
+  'Call at least one tool before returning done.',
 ].join('\n');
 
 export interface ChatStructuredRequest<T> {
@@ -144,6 +194,8 @@ export interface ExecuteAgentInput {
   maxTurns?: number;
   /** Optional abort signal (e.g. for orchestrator timeout). */
   signal?: AbortSignal;
+  /** Called with each turn's output for real-time streaming. */
+  onOutput?: (event: { type: 'thinking' | 'tool_call' | 'tool_result' | 'error' | 'done'; agentId: string; agentName: string; role: string; content: string; turn: number }) => void;
 }
 
 /**
@@ -195,9 +247,14 @@ export class AgentExecutor implements IAgentExecutorPort {
         },
       ];
 
-      const response = await this.llmProvider.chat(messages, {
-        temperature: 0,
-      });
+      let response = await this.llmProvider.chat(messages, { temperature: 0 });
+      // Retry on rate limits with backoff.
+      for (let r = 0; response.isFail() && r < 2; r++) {
+        const isRateLimit = response.error.message.includes('429') || response.error.message.toLowerCase().includes('rate limit');
+        if (!isRateLimit) break;
+        await new Promise((resolve) => setTimeout(resolve, 3000 * (r + 1)));
+        response = await this.llmProvider.chat(messages, { temperature: 0 });
+      }
       if (response.isFail()) {
         lastError = response.error.message;
         continue;
@@ -243,8 +300,9 @@ export class AgentExecutor implements IAgentExecutorPort {
       signal: input.signal,
     };
 
+    const toolNames = input.toolRegistry.names().join(', ');
     const messages: LLMMessage[] = [
-      { role: 'system', content: `${systemPrompt}\n\nYou can call these tools (JSON schema):\n${toolList}` },
+      { role: 'system', content: `${systemPrompt}\n\nAVAILABLE TOOLS (${toolNames}):\n${toolList}\n\nIMPORTANT: Only call tools that are listed above. Do NOT invent tool names.` },
       {
         role: 'user',
         content: `Task: ${input.task.title}\nDescription: ${input.task.description}`,
@@ -257,14 +315,47 @@ export class AgentExecutor implements IAgentExecutorPort {
       if (input.signal?.aborted) {
         return fail(AppError.internal('Agent execution aborted'));
       }
-      const response = await this.llmProvider.chat(messages, { temperature: 0 });
+
+      // Retry loop for rate-limited LLM calls with exponential backoff.
+      let response = await this.llmProvider.chat(messages, { temperature: 0 });
+      for (let retry = 0; response.isFail() && retry < 3; retry++) {
+        const errMsg = response.error.message;
+        const isRateLimit = errMsg.includes('429') || errMsg.toLowerCase().includes('rate limit');
+        if (!isRateLimit) break;
+        const delayMs = Math.min(2000 * 2 ** retry, 15_000);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        response = await this.llmProvider.chat(messages, { temperature: 0 });
+      }
       if (response.isFail()) {
         return fail(response.error);
       }
       const content = response.value.content;
 
+      // Stream LLM response to subscribers.
+      input.onOutput?.({
+        type: 'thinking',
+        agentId: input.agent.id,
+        agentName: input.agent.name,
+        role: input.agent.role,
+        content: content.slice(0, 500),
+        turn,
+      });
+
       const action = extractAction(content);
       if (action === null) {
+        // The LLM responded with free-form text instead of a tool call
+        // or done action. If we haven't made any tool calls yet, this
+        // means the LLM is describing what it WOULD do instead of
+        // actually doing it. Force it to use tools.
+        if (toolCalls.length === 0) {
+          messages.push({ role: 'assistant', content });
+          messages.push({
+            role: 'user',
+            content: 'You must use the provided tools to complete this task. Do not describe what you would do — actually do it by calling the tools. Respond with a JSON object: {"action": "tool_use", "name": "tool_name", "input": {...}} or {"action": "done", "summary": "what you did"}',
+          });
+          continue;
+        }
+        // Tool calls were made — treat remaining text as final summary.
         return ok({
           success: true,
           output: content,
@@ -286,11 +377,32 @@ export class AgentExecutor implements IAgentExecutorPort {
       if (!action.name || !action.input) {
         return fail(AppError.internal('Tool use action missing name or input'));
       }
+
+      // Stream tool call to subscribers.
+      input.onOutput?.({
+        type: 'tool_call',
+        agentId: input.agent.id,
+        agentName: input.agent.name,
+        role: input.agent.role,
+        content: `${action.name}(${JSON.stringify(action.input).slice(0, 200)})`,
+        turn,
+      });
+
       const toolRun = await input.toolRegistry.run(action.name, action.input, ctx);
       const toolOutput = toolRun.isOk()
         ? JSON.stringify(toolRun.value)
         : `ERROR: ${toolRun.error.message}`;
       toolCalls.push({ name: action.name, input: action.input, output: toolOutput });
+
+      // Stream tool result to subscribers.
+      input.onOutput?.({
+        type: 'tool_result',
+        agentId: input.agent.id,
+        agentName: input.agent.name,
+        role: input.agent.role,
+        content: toolOutput.slice(0, 500),
+        turn,
+      });
 
       messages.push({ role: 'assistant', content });
       messages.push({ role: 'user', content: `tool_result(${action.name}): ${toolOutput}` });
@@ -323,7 +435,14 @@ export class AgentExecutor implements IAgentExecutorPort {
 
     let lastError: string | null = null;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const response = await this.llmProvider.chat(messages);
+      let response = await this.llmProvider.chat(messages);
+      // Retry on rate limits with backoff.
+      for (let r = 0; response.isFail() && r < 2; r++) {
+        const isRateLimit = response.error.message.includes('429') || response.error.message.toLowerCase().includes('rate limit');
+        if (!isRateLimit) break;
+        await new Promise((resolve) => setTimeout(resolve, 3000 * (r + 1)));
+        response = await this.llmProvider.chat(messages);
+      }
       if (response.isFail()) {
         lastError = response.error.message;
         continue;
