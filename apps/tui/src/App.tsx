@@ -230,6 +230,93 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
     });
   }, []);
 
+  const handleOrchestrateSentinel = useCallback((result: string) => {
+    const orchProjectId = result.slice('__ORCHESTRATE__:'.length);
+    addMessage('system', 'Orchestration started! Monitoring progress...');
+    const sub = apiClient.subscribeOrchestration(orchProjectId, {
+      onTask: (payload) => {
+        const p = payload as { taskId?: string; agentId?: string; result?: string; reason?: string };
+        if (p.result) {
+          addMessage('system', `Task ${p.taskId?.slice(0, 8)} completed: ${p.result.slice(0, 120)}`);
+        } else if (p.reason) {
+          addMessage('system', `Task ${p.taskId?.slice(0, 8)} failed: ${p.reason}`);
+        } else if (p.agentId) {
+          addMessage('system', `Task ${p.taskId?.slice(0, 8)} started by agent ${p.agentId?.slice(0, 8)}`);
+        }
+      },
+      onOrchestrator: (payload) => {
+        const p = payload as { type?: string; waveIndex?: number; taskIds?: string[] };
+        if (p.type === 'wave:completed' || p.waveIndex !== undefined) {
+          addMessage('system', `Wave ${p.waveIndex ?? '?'} completed (${p.taskIds?.length ?? 0} tasks)`);
+        }
+      },
+      onPlanCompleted: () => {
+        addMessage('system', 'All tasks completed! Use /tasks to see results.');
+        sub?.close();
+      },
+      onPlanFailed: (payload) => {
+        const p = payload as { reason?: string };
+        addMessage('system', `Orchestration failed: ${p.reason ?? 'unknown error'}`);
+        sub?.close();
+      },
+      onError: () => {
+        addMessage('system', 'Lost connection to orchestration events.');
+        sub?.close();
+      },
+    });
+  }, [addMessage]);
+
+  const handleTasksStreamSentinel = useCallback((result: string) => {
+    const streamProjectId = result.slice('__TASKS_STREAM__:'.length);
+    addMessage('system', 'Streaming agent output...');
+    let streamBuffer = '';
+    const sub = apiClient.subscribeAgentOutput(streamProjectId, {
+      onReady: () => {
+        addMessage('system', 'Connected to agent stream');
+      },
+      onAgentOutput: (ev) => {
+        const icon = ev.type === 'tool_call' ? '⚡' : ev.type === 'tool_result' ? '✓' : ev.type === 'error' ? '✗' : ev.type === 'done' ? '●' : '○';
+        const line = `${icon} [${ev.role}] ${ev.content}`;
+        streamBuffer += line + '\n';
+        setMessages((prev) => {
+          const updated = [...prev];
+          const lastIdx = updated.length - 1;
+          if (lastIdx >= 0 && updated[lastIdx]?.role === 'system') {
+            updated[lastIdx] = { ...updated[lastIdx]!, content: streamBuffer.trim() };
+          }
+          return updated;
+        });
+      },
+      onTaskStarted: (p) => {
+        const ev = p as { taskId?: string };
+        streamBuffer += `\n▸ Task ${ev.taskId?.slice(0, 8)} started\n`;
+      },
+      onTaskCompleted: (p) => {
+        const ev = p as { taskId?: string };
+        streamBuffer += `\n✓ Task ${ev.taskId?.slice(0, 8)} completed\n`;
+      },
+      onTaskFailed: (p) => {
+        const ev = p as { taskId?: string; reason?: string };
+        streamBuffer += `\n✗ Task ${ev.taskId?.slice(0, 8)} failed: ${ev.reason}\n`;
+      },
+      onPlanCompleted: () => {
+        streamBuffer += '\n● All tasks completed!';
+        addMessage('system', streamBuffer.trim());
+        sub?.close();
+      },
+      onPlanFailed: (p) => {
+        const ev = p as { reason?: string };
+        streamBuffer += `\n✗ Plan failed: ${ev.reason}`;
+        addMessage('system', streamBuffer.trim());
+        sub?.close();
+      },
+      onError: () => {
+        addMessage('system', 'Lost connection to agent stream');
+        sub?.close();
+      },
+    });
+  }, [addMessage]);
+
   const handleInteractiveSelect = useCallback(
     async (option: SelectOption) => {
       if (!interactiveMenu || interactiveMenu.type !== 'select') return;
@@ -242,11 +329,15 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
 
       if (result && typeof result === 'object' && 'type' in result) {
         setInteractiveMenu(result as InteractiveCommand);
+      } else if (typeof result === 'string' && result.startsWith('__ORCHESTRATE__:')) {
+        handleOrchestrateSentinel(result);
+      } else if (typeof result === 'string' && result.startsWith('__TASKS_STREAM__:')) {
+        handleTasksStreamSentinel(result);
       } else if (result) {
         addMessage('system', result as string);
       }
     },
-    [interactiveMenu, addMessage],
+    [interactiveMenu, addMessage, handleOrchestrateSentinel, handleTasksStreamSentinel],
   );
 
   const handleInteractiveInput = useCallback(
@@ -261,11 +352,15 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
 
       if (result && typeof result === 'object' && 'type' in result) {
         setInteractiveMenu(result as InteractiveCommand);
+      } else if (typeof result === 'string' && result.startsWith('__ORCHESTRATE__:')) {
+        handleOrchestrateSentinel(result);
+      } else if (typeof result === 'string' && result.startsWith('__TASKS_STREAM__:')) {
+        handleTasksStreamSentinel(result);
       } else if (result) {
         addMessage('system', result as string);
       }
     },
-    [interactiveMenu, addMessage],
+    [interactiveMenu, addMessage, handleOrchestrateSentinel, handleTasksStreamSentinel],
   );
 
   const handleInteractiveCancel = useCallback(() => {
@@ -320,6 +415,64 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
           return;
         }
 
+        if (typeof result === 'string' && result.startsWith('__ORCHESTRATE__:')) {
+          handleOrchestrateSentinel(result);
+          return;
+        }
+
+        if (typeof result === 'string' && result.startsWith('__TASKS_STREAM__:')) {
+          const streamProjectId = result.slice('__TASKS_STREAM__:'.length);
+          addMessage('system', 'Streaming agent output... (press any key to stop)');
+          let streamBuffer = '';
+          const sub = apiClient.subscribeAgentOutput(streamProjectId, {
+            onReady: () => {
+              addMessage('system', 'Connected to agent stream');
+            },
+            onAgentOutput: (ev) => {
+              const icon = ev.type === 'tool_call' ? '⚡' : ev.type === 'tool_result' ? '✓' : ev.type === 'error' ? '✗' : ev.type === 'done' ? '●' : '○';
+              const line = `${icon} [${ev.role}] ${ev.content}`;
+              streamBuffer += line + '\n';
+              // Update the last system message with accumulated output.
+              setMessages((prev) => {
+                const updated = [...prev];
+                const lastIdx = updated.length - 1;
+                if (lastIdx >= 0 && updated[lastIdx]?.role === 'system') {
+                  updated[lastIdx] = { ...updated[lastIdx]!, content: streamBuffer.trim() };
+                }
+                return updated;
+              });
+            },
+            onTaskStarted: (p) => {
+              const ev = p as { taskId?: string; agentId?: string };
+              streamBuffer += `\n▸ Task ${ev.taskId?.slice(0, 8)} started\n`;
+            },
+            onTaskCompleted: (p) => {
+              const ev = p as { taskId?: string; result?: string };
+              streamBuffer += `\n✓ Task ${ev.taskId?.slice(0, 8)} completed\n`;
+            },
+            onTaskFailed: (p) => {
+              const ev = p as { taskId?: string; reason?: string };
+              streamBuffer += `\n✗ Task ${ev.taskId?.slice(0, 8)} failed: ${ev.reason}\n`;
+            },
+            onPlanCompleted: () => {
+              streamBuffer += '\n● All tasks completed!';
+              addMessage('system', streamBuffer.trim());
+              sub?.close();
+            },
+            onPlanFailed: (p) => {
+              const ev = p as { reason?: string };
+              streamBuffer += `\n✗ Plan failed: ${ev.reason}`;
+              addMessage('system', streamBuffer.trim());
+              sub?.close();
+            },
+            onError: () => {
+              addMessage('system', 'Lost connection to agent stream');
+              sub?.close();
+            },
+          });
+          return;
+        }
+
         if (result && typeof result === 'object' && 'type' in result) {
           setInteractiveMenu(result as InteractiveCommand);
           return;
@@ -350,7 +503,7 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
         );
       }
     },
-    [addMessage, exit, appendToLastMessage],
+    [addMessage, exit, appendToLastMessage, handleOrchestrateSentinel],
   );
 
   if (chatMode) {

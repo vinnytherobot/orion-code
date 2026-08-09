@@ -113,19 +113,6 @@ async function resolveTaskId(arg: string): Promise<{ id: string } | { error: str
   return { error: `Task not found: ${arg}` };
 }
 
-// Common task types for implement command
-const TASK_TYPES: SelectOption[] = [
-  { label: 'Create health check endpoint', value: 'Create a health check endpoint (GET /health) that returns server status' },
-  { label: 'Create CRUD for users', value: 'Create a CRUD API for user management with create, read, update, delete endpoints' },
-  { label: 'Create authentication', value: 'Implement JWT authentication with login, register, and token refresh' },
-  { label: 'Create database schema', value: 'Design and implement a database schema with proper indexes and relationships' },
-  { label: 'Write unit tests', value: 'Write comprehensive unit tests for the existing code' },
-  { label: 'Create Docker config', value: 'Create Dockerfile and docker-compose.yml for the project' },
-  { label: 'Create CI/CD pipeline', value: 'Set up GitHub Actions CI/CD pipeline with build, test, and deploy stages' },
-  { label: 'Add API documentation', value: 'Create API documentation with OpenAPI/Swagger specification' },
-  { label: 'Performance optimization', value: 'Analyze and optimize performance bottlenecks in the codebase' },
-  { label: 'Code review', value: 'Review the codebase for bugs, security issues, and best practices' },
-];
 
 export const COMMANDS: Command[] = [
   { name: 'help', description: 'Show available commands', usage: '/help [command]', handler: async (args: string[]): Promise<string> => {
@@ -157,15 +144,33 @@ export const COMMANDS: Command[] = [
     if (filtered.length === 0) return '\nNo agents found.';
     let output = '\nAvailable Agents:'; filtered.forEach((a) => { const icon = a.status === 'running' ? '[*]' : '[-]'; output += `\n  ${icon} ${a.name.padEnd(15)} ${a.role.padEnd(12)} ${a.status}`; }); return output;
   }},
-  { name: 'tasks', description: 'List active tasks', usage: '/tasks [status]', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
+  { name: 'tasks', description: 'List tasks and stream agent output', usage: '/tasks [status]', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
     if (!apiClient.isAuthenticated()) return '\nNot authenticated. Use /login or /register first.';
     const result = await apiClient.listTasks();
     const expired = handleSessionExpired(result);
     if (expired) return expired;
     if (result.error) return `\nError: ${result.error}`;
-    const tasks = result.data?.tasks || []; const filterStatus = args[0]?.toLowerCase(); const filtered = filterStatus ? tasks.filter((t) => t.status === filterStatus) : tasks;
+    const tasks = result.data?.tasks || [];
+    const filterStatus = args[0]?.toLowerCase();
+    const filtered = filterStatus ? tasks.filter((t) => t.status === filterStatus) : tasks;
     if (filtered.length === 0) return '\nNo tasks found.';
-    let output = '\nTasks:'; filtered.forEach((t) => { const icon = t.status === 'completed' ? '[OK]' : t.status === 'running' ? '[..]' : t.status === 'failed' ? '[!!]' : '[-]'; output += `\n  ${icon} [${t.id.slice(0, 8)}] ${t.title} (${t.status})`; }); return output;
+
+    // If there are running or pending tasks, switch to streaming mode.
+    const hasActive = filtered.some((t) => t.status === 'running' || t.status === 'pending');
+    if (hasActive && !filterStatus) {
+      // Find the project ID from the first active task.
+      const activeTask = filtered.find((t) => t.status === 'running' || t.status === 'pending');
+      if (activeTask) {
+        return `__TASKS_STREAM__:${activeTask.projectId}`;
+      }
+    }
+
+    let output = '\nTasks:';
+    filtered.forEach((t) => {
+      const icon = t.status === 'completed' ? '[OK]' : t.status === 'running' ? '[..]' : t.status === 'failed' ? '[!!]' : '[-]';
+      output += `\n  ${icon} [${t.id.slice(0, 8)}] ${t.title} (${t.status})`;
+    });
+    return output;
   }},
   { name: 'config', description: 'Show or update configuration', usage: '/config', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
     if (args.length === 0) {
@@ -522,19 +527,19 @@ export const COMMANDS: Command[] = [
     const result = await apiClient.initializeAgents(projectId); if (result.error) return `\nError: ${result.error}`;
     const agents = result.data?.agents || []; let output = `\nInitialized ${agents.length} agents:`; agents.forEach((a) => { output += `\n  ${a.name} (${a.role})`; }); return output;
   }},
-  { name: 'implement', description: 'Implement a task using AI agents', usage: '/implement [projectId] [taskType]', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
+  { name: 'implement', description: 'Implement a task using AI agents', usage: '/implement [projectId] [request]', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
     if (!apiClient.isAuthenticated()) return '\nNot authenticated. Use /login or /register first.';
-    let projectId = args[0]; let taskType = args.slice(1).join(' ');
+    let projectId = args[0]; let requestText = args.slice(1).join(' ');
     if (!projectId) {
       const optionsResult = await getProjectOptions();
       if ('type' in optionsResult) return optionsResult;
       if (optionsResult.length === 0) return '\nNo projects found.';
-      return { type: 'select', title: 'Select project:', options: optionsResult, callback: async (pid: string) => { return { type: 'select', title: 'Select what to implement:', options: TASK_TYPES, callback: async (task: string) => { const r = await apiClient.executeOrchestration(pid, [{ title: task, description: task }]); if (r.error) return `Error: ${r.error}`; return '\nTask submitted to AI agents! Use /tasks to monitor progress.'; } }; } };
+      return { type: 'select', title: 'Select project:', options: optionsResult, callback: async (pid: string) => { return { type: 'input', title: 'Describe what to implement:', placeholder: 'Add JWT authentication with login and register', callback: async (req: string) => { if (!req) return '\nRequest is required.'; const r = await apiClient.executeOrchestrationRequest(pid, req); if (r.error) return `Error: ${r.error}`; return '\nTask submitted to AI agents! The Planner will decompose it into subtasks. Use /tasks to monitor progress.'; } }; } };
     }
-    if (!taskType) { return { type: 'select', title: 'Select what to implement:', options: TASK_TYPES, callback: async (task: string) => { const r = await apiClient.executeOrchestration(projectId, [{ title: task, description: task }]); if (r.error) return `Error: ${r.error}`; return '\nTask submitted to AI agents! Use /tasks to monitor progress.'; } }; }
+    if (!requestText) { return { type: 'input', title: 'Describe what to implement:', placeholder: 'Add JWT authentication with login and register', callback: async (req: string) => { if (!req) return '\nRequest is required.'; const r = await apiClient.executeOrchestrationRequest(projectId, req); if (r.error) return `Error: ${r.error}`; return '\nTask submitted to AI agents! The Planner will decompose it into subtasks. Use /tasks to monitor progress.'; } }; }
     const projectResolved = await resolveProjectId(projectId);
     if ('error' in projectResolved) return `\nError: ${projectResolved.error}`;
-    const executeResult = await apiClient.executeOrchestration(projectResolved.id, [{ title: taskType, description: taskType }]); if (executeResult.error) return `\nError: ${executeResult.error}`; return '\nTask submitted to AI agents! Use /tasks to monitor progress.';
+    const executeResult = await apiClient.executeOrchestrationRequest(projectResolved.id, requestText); if (executeResult.error) return `\nError: ${executeResult.error}`; return '\nTask submitted to AI agents! The Planner will decompose it into subtasks. Use /tasks to monitor progress.';
   }},
   { name: 'orchestrate', description: 'Execute orchestration for pending tasks', usage: '/orchestrate [projectId]', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
     if (!apiClient.isAuthenticated()) return '\nNot authenticated. Use /login or /register first.';
