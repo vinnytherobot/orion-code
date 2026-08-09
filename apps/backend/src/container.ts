@@ -18,6 +18,19 @@ import {
   ExecutionLogRepository,
   ChatMessageRepository,
   ChatSessionRepository,
+  WorktreeManager,
+  MergeResolver,
+  ToolRegistry,
+  LockManager,
+  MessageBus,
+  PlannerService,
+  ProjectAnalyzer,
+  readFileTool,
+  writeFileTool,
+  editFileTool,
+  globTool,
+  grepTool,
+  bashTool,
 } from '@orion/infrastructure';
 import {
   PlanUseCase,
@@ -40,6 +53,7 @@ export type AppDeps = {
   providerUseCase: ProviderUseCase;
   agentExecutor: AgentExecutor;
   userRepository: UserDomainRepository;
+  plannerService: PlannerService;
   generateId: () => string;
   now: () => Date;
 };
@@ -135,13 +149,36 @@ export function buildDeps(jwtSecret: string): AppDeps {
     unitOfWork,
   );
 
+  // Orchestration infrastructure
+  const worktreeManager = new WorktreeManager();
+  const mergeResolver = new MergeResolver(worktreeManager);
+  const lockManager = new LockManager();
+  const messageBus = new MessageBus();
+
+  const toolRegistry = new ToolRegistry();
+  toolRegistry.register(readFileTool);
+  toolRegistry.register(writeFileTool);
+  toolRegistry.register(editFileTool);
+  toolRegistry.register(globTool);
+  toolRegistry.register(grepTool);
+  toolRegistry.register(bashTool);
+
+  const projectAnalyzer = new ProjectAnalyzer();
+  const plannerService = new PlannerService(projectAnalyzer, agentExecutor);
+
   const orchestrator = new Orchestrator(
     taskRepository,
     agentRepository,
     agentExecutor,
-    undefined,
+    { maxConcurrentAgents: 4, taskTimeoutMs: 300_000, retryAttempts: 2 },
     eventBus,
     new ExecutionLogRepository(),
+    worktreeManager,
+    mergeResolver,
+    toolRegistry,
+    lockManager,
+    messageBus,
+    { rootPath: process.env.ORION_PROJECT_PATH ?? process.cwd() },
   );
 
   return {
@@ -156,6 +193,7 @@ export function buildDeps(jwtSecret: string): AppDeps {
     providerUseCase,
     agentExecutor,
     userRepository,
+    plannerService,
     generateId,
     now,
   };
