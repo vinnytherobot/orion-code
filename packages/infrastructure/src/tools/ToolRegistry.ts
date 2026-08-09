@@ -99,7 +99,8 @@ export class ToolRegistry {
   ): Promise<ToolRunResult> {
     const tool = this.tools.get(name);
     if (!tool) {
-      return fail(AppError.notFound(`Tool ${name}`));
+      const available = [...this.tools.keys()].join(', ');
+      return fail(AppError.notFound(`Tool "${name}" does not exist. Available tools: ${available}`));
     }
 
     if (tool.requiresPermission) {
