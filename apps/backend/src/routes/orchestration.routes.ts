@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
+import { Task } from '@orion/domain';
 import type { AppDeps } from '../container.js';
 
 export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDeps) {
-  const { orchestrator, taskRepository: taskRepo } = deps;
+  const { orchestrator, taskRepository: taskRepo, plannerService } = deps;
 
   /**
    * Server-Sent Events stream of orchestration events for a given
@@ -80,9 +81,138 @@ export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDep
     send('ready', { projectId });
   });
 
+  /**
+   * SSE stream of real-time agent output for a project. Each event
+   * contains the agent's thinking, tool calls, and results as they
+   * happen — similar to Claude Code / MiMo Code streaming.
+   */
+  fastify.get('/api/projects/:projectId/orchestration/stream', async (request, reply) => {
+    const { projectId } = request.params as { projectId: string };
+
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    const send = (event: string, data: unknown): void => {
+      reply.raw.write(`event: ${event}\n`);
+      reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    const onAgentOutput = (payload: unknown): void => {
+      const p = payload as { taskId?: string };
+      // Only forward events for tasks in this project.
+      if (p?.taskId) send('agent:output', payload);
+    };
+    const onTaskStarted = (payload: unknown): void => send('task:started', payload);
+    const onTaskCompleted = (payload: unknown): void => send('task:completed', payload);
+    const onTaskFailed = (payload: unknown): void => send('task:failed', payload);
+    const onPlanComplete = (payload: unknown): void => {
+      const p = payload as { projectId?: string };
+      if (p?.projectId === projectId) {
+        send('plan:completed', payload);
+        cleanup();
+        reply.raw.end();
+      }
+    };
+    const onPlanFailed = (payload: unknown): void => {
+      const p = payload as { projectId?: string };
+      if (p?.projectId === projectId) {
+        send('plan:failed', payload);
+        cleanup();
+        reply.raw.end();
+      }
+    };
+
+    orchestrator.on('agent:output', onAgentOutput);
+    orchestrator.on('task:started', onTaskStarted);
+    orchestrator.on('task:completed', onTaskCompleted);
+    orchestrator.on('task:failed', onTaskFailed);
+    orchestrator.on('plan:completed', onPlanComplete);
+    orchestrator.on('plan:failed', onPlanFailed);
+
+    const heartbeat = setInterval(() => {
+      reply.raw.write(`: heartbeat\n\n`);
+    }, 15_000);
+
+    const cleanup = (): void => {
+      clearInterval(heartbeat);
+      orchestrator.off('agent:output', onAgentOutput);
+      orchestrator.off('task:started', onTaskStarted);
+      orchestrator.off('task:completed', onTaskCompleted);
+      orchestrator.off('task:failed', onTaskFailed);
+      orchestrator.off('plan:completed', onPlanComplete);
+      orchestrator.off('plan:failed', onPlanFailed);
+    };
+
+    request.raw.on('close', cleanup);
+    send('ready', { projectId });
+  });
+
   fastify.post('/api/projects/:projectId/orchestration/execute', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
-    const { tasks } = request.body as { tasks: any[] };
+    const body = request.body as { request?: string; tasks?: Array<{ title: string; description: string; role?: string; dependencies?: string[] }> };
+
+    let tasks = body.tasks;
+
+    // If a free-text request is provided, use the PlannerService to
+    // decompose it into subtasks with roles and dependencies.
+    if (!tasks && body.request) {
+      const planResult = await plannerService.plan({
+        rootPath: process.cwd(),
+        request: body.request,
+      });
+      if (planResult.isFail()) {
+        return reply.status(400).send({ success: false, error: planResult.error.message });
+      }
+      const planned = planResult.value;
+
+      // PlannerService uses local IDs (e.g. "0-architect") for
+      // dependencies. We need to create tasks with real UUIDs and
+      // remap the dependencies.
+      const localIdToDbId = new Map<string, string>();
+
+      // First pass: create all tasks (without dependencies).
+      for (const sub of planned.subtasks) {
+        const task = Task.create({
+          projectId,
+          title: sub.title,
+          description: sub.description,
+          role: sub.role,
+        });
+        await taskRepo.save(task);
+        localIdToDbId.set(sub.localId, task.id.toString());
+      }
+
+      // Second pass: resolve and set dependencies using real UUIDs.
+      for (const sub of planned.subtasks) {
+        const dbId = localIdToDbId.get(sub.localId);
+        if (!dbId) continue;
+        const resolvedDeps = sub.dependencies
+          .map((localDep) => localIdToDbId.get(localDep))
+          .filter((id): id is string => !!id);
+        if (resolvedDeps.length > 0) {
+          const task = await taskRepo.findById(dbId);
+          if (task) {
+            task.setDependencies(resolvedDeps);
+            await taskRepo.save(task);
+          }
+        }
+      }
+
+      // Kick off the orchestrator run loop (fire-and-forget).
+      void orchestrator.runProject(projectId).catch((err) => {
+        request.log.error({ err, projectId }, 'orchestration failed');
+      });
+
+      return reply.send({ success: true });
+    }
+
+    if (!tasks || tasks.length === 0) {
+      return reply.status(400).send({ success: false, error: 'Provide either { request } or { tasks }' });
+    }
 
     const result = await orchestrator.executePlan({ projectId, tasks });
     if (result.isFail()) {
