@@ -71,13 +71,19 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
   }
 
   async executePlan(plan: ExecutePlanInput): Promise<Result<void, AppError>> {
+    const createdTaskIds: string[] = [];
     for (const input of plan.tasks ?? []) {
       const task = Task.create({
         projectId: plan.projectId,
         title: input.title,
         description: input.description,
+        role: input.role,
       });
+      if (input.dependencies && input.dependencies.length > 0) {
+        task.setDependencies(input.dependencies);
+      }
       await this.taskRepo.save(task);
+      createdTaskIds.push(task.id.toString());
     }
     // Kick off the async loop but don't await it — the HTTP response
     // returns immediately and the TUI follows via SSE.
@@ -179,6 +185,15 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
    * each wave in parallel.
    */
   async runProject(projectId: string): Promise<Result<void, AppError>> {
+    // Reset all completed/stale agents to idle so they can be reused.
+    const allAgents = await this.agentRepo.findByProject(projectId);
+    for (const agent of allAgents) {
+      if (!agent.status.isIdle()) {
+        agent.reset();
+        await this.agentRepo.save(agent);
+      }
+    }
+
     const allTasks = await this.taskRepo.findAll();
     const projectTasks = allTasks.filter((t) => t.projectId === projectId);
 
@@ -186,8 +201,13 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
       return fail(AppError.notFound(`No tasks for project ${projectId}`));
     }
 
+    const pendingTasks = projectTasks.filter((t) => t.status.isPending());
+    if (pendingTasks.length === 0) {
+      return fail(AppError.notFound(`No pending tasks for project ${projectId}`));
+    }
+
     const schedule = this.scheduler.build(
-      projectTasks.map((t) => ({
+      pendingTasks.map((t) => ({
         id: t.id.toString(),
         dependencies: [...t.dependencies],
       })),
@@ -197,7 +217,8 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     }
 
     for (const wave of schedule.waves) {
-      const waveResult = await this.runWave(projectTasks, wave.taskIds);
+      this.emit('wave:started', { waveIndex: wave.index, taskIds: wave.taskIds });
+      const waveResult = await this.runWave(pendingTasks, wave.taskIds);
       if (waveResult.isFail()) {
         return fail(waveResult.error);
       }
@@ -220,36 +241,43 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     const byId = new Map(allTasks.map((t) => [t.id.toString(), t]));
     const queue = [...taskIds];
 
+    // Launch up to maxConcurrentAgents tasks in parallel.
+    // Stagger start by 2s each to avoid LLM rate-limit spikes.
     const workers: Promise<Result<void, AppError>>[] = [];
     while (queue.length > 0 && workers.length < this.config.maxConcurrentAgents) {
       const id = queue.shift();
       if (!id) break;
       const task = byId.get(id);
       if (!task) continue;
-      workers.push(this.runSingleTask(task));
+      const delay = workers.length * 2000;
+      workers.push(
+        new Promise((resolve) => setTimeout(resolve, delay)).then(() => this.runSingleTask(task)),
+      );
     }
 
-    const initialResults = await Promise.all(workers);
+    // Wait for the first batch, then continue with remaining tasks
+    // as slots free up.
+    const firstBatch = await Promise.all(workers);
+    for (const failResult of firstBatch) {
+      if (failResult.isFail()) return fail(failResult.error);
+    }
 
-    // Continue picking up remaining tasks as workers free up.
-    let pending = queue;
-    while (pending.length > 0) {
-      const next = pending.shift();
-      if (!next) break;
-      const task = byId.get(next);
-      if (!task) continue;
-      const result = await this.runSingleTask(task);
-      if (result.isFail()) {
-        return fail(result.error);
+    // Process remaining tasks in parallel batches.
+    while (queue.length > 0) {
+      const batch: Promise<Result<void, AppError>>[] = [];
+      while (queue.length > 0 && batch.length < this.config.maxConcurrentAgents) {
+        const id = queue.shift();
+        if (!id) break;
+        const task = byId.get(id);
+        if (!task) continue;
+        batch.push(this.runSingleTask(task));
+      }
+      const results = await Promise.all(batch);
+      for (const failResult of results) {
+        if (failResult.isFail()) return fail(failResult.error);
       }
     }
 
-    if (initialResults.some((r) => r.isFail())) {
-      const firstFail = initialResults.find((r) => r.isFail());
-      if (firstFail && firstFail.isFail()) {
-        return fail(firstFail.error);
-      }
-    }
     return ok(undefined);
   }
 
@@ -266,7 +294,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     }
     await this.taskRepo.save(task);
 
-    const agent = await this.claimAgentForRole(task.role);
+    const agent = await this.claimAgentForRole(task.role, task.projectId);
     if (!agent) {
       task.fail(`No idle agent with role ${task.role}`);
       await this.taskRepo.save(task);
@@ -377,6 +405,12 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         toolRegistry: this.toolRegistry,
         lockManager: this.lockManager,
         signal,
+        onOutput: (event) => {
+          this.emit('agent:output', {
+            taskId: task.id.toString(),
+            ...event,
+          });
+        },
       });
       if (result.isFail()) return fail(result.error);
       return ok({ output: result.value.output });
@@ -387,8 +421,10 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     return ok({ output: result.value.output });
   }
 
-  private async claimAgentForRole(role: string) {
-    const agents = await this.agentRepo.findAll();
+  private async claimAgentForRole(role: string, projectId?: string) {
+    const agents = projectId
+      ? await this.agentRepo.findByProject(projectId)
+      : await this.agentRepo.findAll();
     const idle = agents.filter((a) => a.status.isIdle());
     const sameRole = idle.find((a) => a.role === role);
     return sameRole ?? idle[0] ?? null;
@@ -403,17 +439,18 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         branchName: `orion/${task.id.toString()}`,
       });
     } catch (err) {
+      // Worktree creation failed (e.g. uncommitted changes, not a git
+      // repo inside Docker). Fall back to writing directly in the
+      // project root. The tool-use loop still runs — tools just write
+      // to the project path instead of an isolated worktree.
+      const reason = err instanceof Error ? err.message : String(err);
       await this.messageBus?.send({
         from: 'orchestrator',
         to: 'broadcast',
         type: 'notification',
-        payload: {
-          type: 'worktree:failed',
-          taskId: task.id.toString(),
-          reason: err instanceof Error ? err.message : String(err),
-        },
+        payload: { type: 'worktree:failed', taskId: task.id.toString(), reason },
       });
-      return null;
+      return this.projectResolver.rootPath;
     }
   }
 
