@@ -1,11 +1,7 @@
-export interface PlannedSubtask {
-  localId: string;
-  title: string;
-  description: string;
-  role: string;
-  dependencies: string[];
-  estimatedComplexity: number;
-}
+import type { PlannedSubtask } from './PlannerService.js';
+
+// Re-export for convenience
+export type { PlannedSubtask } from './PlannerService.js';
 
 // Priority order for DAG ordering
 const ROLE_PRIORITY: Record<string, number> = {
@@ -22,25 +18,47 @@ const ROLE_PRIORITY: Record<string, number> = {
   git: 7,
 };
 
+// Valid roles for input validation
+const VALID_ROLES = new Set([
+  'architect',
+  'backend',
+  'database',
+  'frontend',
+  'documentation',
+  'qa',
+  'reviewer',
+  'devops',
+  'security',
+  'performance',
+  'git',
+]);
+
 export class DagBuilder {
   build(agents: string[]): PlannedSubtask[] {
     if (agents.length === 0) return [];
 
+    // Filter out unknown roles with warning
+    const validAgents = agents.filter((role) => {
+      if (!VALID_ROLES.has(role)) {
+        console.warn(`DagBuilder: Unknown role "${role}" ignored`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validAgents.length === 0) return [];
+
     // Sort agents by priority
-    const sorted = [...agents].sort((a, b) => {
+    const sorted = [...validAgents].sort((a, b) => {
       const priorityA = ROLE_PRIORITY[a] ?? 50;
       const priorityB = ROLE_PRIORITY[b] ?? 50;
       return priorityA - priorityB;
     });
 
     const subtasks: PlannedSubtask[] = [];
-    const roleCount = new Map<string, number>();
 
     for (const role of sorted) {
-      const count = roleCount.get(role) ?? 0;
-      roleCount.set(role, count + 1);
-
-      const localId = count > 0 ? `${count}-${role}` : `${subtasks.length}-${role}`;
+      const localId = `${subtasks.length}-${role}`;
       const dependencies = this.calculateDependencies(role, subtasks);
 
       subtasks.push({
@@ -71,8 +89,10 @@ export class DagBuilder {
       }
 
       // Implementation roles are dependencies for qa/reviewer
-      if (['backend', 'frontend', 'database'].includes(subtask.role) && 
-          ['qa', 'reviewer'].includes(role)) {
+      if (
+        ['backend', 'frontend', 'database'].includes(subtask.role) &&
+        ['qa', 'reviewer'].includes(role)
+      ) {
         deps.push(subtask.localId);
       }
     }
