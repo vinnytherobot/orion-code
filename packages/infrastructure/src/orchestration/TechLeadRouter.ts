@@ -167,21 +167,37 @@ export class TechLeadRouter {
       out.push({ localId, title, description, role, dependencies: [], estimatedComplexity: complexity });
     }
 
-    // Wire dependencies
+    // Wire dependencies — return errors instead of silently dropping invalid refs.
     for (const [idx, row] of raw.entries()) {
       const deps = Array.isArray(row.dependencies) ? row.dependencies : [];
       const mapped: string[] = [];
       for (const dep of deps) {
         const depIdx = typeof dep === 'number' ? dep : Number.parseInt(String(dep), 10);
-        if (!Number.isFinite(depIdx) || depIdx === idx) continue;
+        if (!Number.isFinite(depIdx)) {
+          return fail(AppError.validation(`Subtask #${idx} has non-numeric dependency "${dep}"`));
+        }
+        if (depIdx === idx) {
+          return fail(AppError.validation(`Subtask #${idx} depends on itself`));
+        }
+        if (depIdx < 0 || depIdx >= raw.length) {
+          return fail(AppError.validation(`Subtask #${idx} depends on missing index ${depIdx}`));
+        }
         const target = out[depIdx];
-        if (target) mapped.push(target.localId);
+        if (!target) {
+          return fail(AppError.validation(`Subtask #${idx} depends on missing index ${depIdx}`));
+        }
+        mapped.push(target.localId);
       }
       const row_ = out[idx];
       if (!row_) {
         return fail(AppError.validation(`Internal: missing subtask at index ${idx}`));
       }
       row_.dependencies = mapped;
+    }
+
+    // Cycle check — use topological sort (Kahn's algorithm) since the graph is small.
+    if (this.hasCycle(out)) {
+      return fail(AppError.validation('Planner produced a plan with a dependency cycle'));
     }
 
     return ok(out);
@@ -197,5 +213,32 @@ export class TechLeadRouter {
       .slice(0, 5)
       .join(',');
     return `${intent}:${keywords}`;
+  }
+
+  private hasCycle(plan: PlannedSubtask[]): boolean {
+    const inDegree = new Map<string, number>();
+    const children = new Map<string, string[]>();
+    for (const node of plan) {
+      inDegree.set(node.localId, node.dependencies.length);
+      for (const dep of node.dependencies) {
+        const list = children.get(dep) ?? [];
+        list.push(node.localId);
+        children.set(dep, list);
+      }
+    }
+
+    const queue = plan.filter((n) => (inDegree.get(n.localId) ?? 0) === 0).map((n) => n.localId);
+    let visited = 0;
+    while (queue.length > 0) {
+      const id = queue.shift();
+      if (!id) break;
+      visited++;
+      for (const child of children.get(id) ?? []) {
+        const next = (inDegree.get(child) ?? 0) - 1;
+        inDegree.set(child, next);
+        if (next === 0) queue.push(child);
+      }
+    }
+    return visited !== plan.length;
   }
 }

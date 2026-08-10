@@ -119,7 +119,10 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
 
     const { subtasks } = routeResult.value;
 
-    // Convert subtasks to Task entities
+    // First pass: create all tasks and build localId → UUID mapping.
+    // DagBuilder produces localId values like "0-architect", but
+    // Task.setDependencies() expects actual task UUIDs.
+    const localIdToTaskId = new Map<string, string>();
     for (const subtask of subtasks) {
       const task = Task.create({
         projectId: input.projectId,
@@ -127,10 +130,24 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         description: subtask.description,
         role: subtask.role,
       });
-      if (subtask.dependencies.length > 0) {
-        task.setDependencies(subtask.dependencies);
-      }
       await this.taskRepo.save(task);
+      localIdToTaskId.set(subtask.localId, task.id.toString());
+    }
+
+    // Second pass: update dependencies with actual task IDs.
+    for (const subtask of subtasks) {
+      if (subtask.dependencies.length > 0) {
+        const task = await this.taskRepo.findById(localIdToTaskId.get(subtask.localId) ?? '');
+        if (task) {
+          const actualDeps = subtask.dependencies
+            .map(dep => localIdToTaskId.get(dep))
+            .filter((id): id is string => id !== undefined);
+          if (actualDeps.length > 0) {
+            task.setDependencies(actualDeps);
+            await this.taskRepo.save(task);
+          }
+        }
+      }
     }
 
     // Start execution
