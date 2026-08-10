@@ -59,6 +59,8 @@ export { LockManager } from './orchestration/LockManager.js';
 export type { LockToken } from './orchestration/LockManager.js';
 export { PlannerService } from './orchestration/PlannerService.js';
 export type { PlannedSubtask, PlannerResult } from './orchestration/PlannerService.js';
+export { IntentClassifier } from './orchestration/IntentClassifier.js';
+export type { Intent } from './orchestration/IntentClassifier.js';
 export { ProjectAnalyzer } from './orchestration/ProjectAnalyzer.js';
 export type { ProjectSnapshot } from './orchestration/ProjectAnalyzer.js';
 export { Scheduler } from './orchestration/Scheduler.js';

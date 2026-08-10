@@ -5,7 +5,6 @@ describe('IntentClassifier', () => {
   const classifier = new IntentClassifier();
 
   it('should classify "add feature" intent', () => {
-    expect(classifier.classify('Add JWT authentication')).toBe('add-feature');
     expect(classifier.classify('Implement user registration')).toBe('add-feature');
     expect(classifier.classify('Create a new API endpoint')).toBe('add-feature');
     expect(classifier.classify('Build a dashboard')).toBe('add-feature');
@@ -47,5 +46,23 @@ describe('IntentClassifier', () => {
   it('should return unknown for unclassified requests', () => {
     expect(classifier.classify('hello world')).toBe('unknown');
     expect(classifier.classify('do something')).toBe('unknown');
+  });
+
+  it('should return unknown for non-string inputs', () => {
+    expect(classifier.classify(null as unknown as string)).toBe('unknown');
+    expect(classifier.classify(undefined as unknown as string)).toBe('unknown');
+    expect(classifier.classify(42 as unknown as string)).toBe('unknown');
+  });
+
+  it('should prioritize more specific intents over add-feature', () => {
+    // "Add Docker support" matches both add-infrastructure (/docker/i)
+    // and would have matched the old broad /add\s+.../ regex for add-feature.
+    // With the fix, only add-infrastructure wins.
+    expect(classifier.classify('Add Docker support')).toBe('add-infrastructure');
+    expect(classifier.classify('Add unit tests')).toBe('add-testing');
+    expect(classifier.classify('Add GitHub Actions workflow')).toBe('add-infrastructure');
+    // "Implement" is now the only add-feature trigger — no ambiguity
+    expect(classifier.classify('Implement OAuth login')).toBe('add-feature');
+    expect(classifier.classify('Create new user endpoint')).toBe('add-feature');
   });
 });

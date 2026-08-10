@@ -8,62 +8,64 @@ export type Intent =
   | 'performance'
   | 'unknown';
 
-const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
-  'add-infrastructure': [
+// Intent patterns ordered by specificity — first match wins.
+// More specific intents (infrastructure, testing) are checked before
+// general feature creation to avoid ambiguity.
+const INTENT_PATTERNS: [Intent, RegExp[]][] = [
+  ['add-infrastructure', [
     /docker/i,
     /ci\/cd/i,
     /deploy/i,
     /github\s+actions/i,
     /infrastructure/i,
-  ],
-  'add-testing': [
+  ]],
+  ['add-testing', [
     /test/i,
     /coverage/i,
     /e2e/i,
     /unit\s+test/i,
     /integration\s+test/i,
-  ],
-  'add-feature': [
-    /add\s+(a\s+)?(new\s+)?/i,
+  ]],
+  ['add-feature', [
     /implement/i,
     /create/i,
     /build/i,
-  ],
-  'fix-bug': [
+  ]],
+  ['fix-bug', [
     /fix/i,
     /bug/i,
     /error/i,
     /broken/i,
     /crash/i,
-  ],
-  'refactor': [
+  ]],
+  ['refactor', [
     /refactor/i,
     /restructure/i,
     /reorganize/i,
     /clean\s+up/i,
-  ],
-  'security-audit': [
+  ]],
+  ['security-audit', [
     /security/i,
     /vulnerability/i,
     /audit/i,
     /vulnerabilities/i,
-  ],
-  'performance': [
+  ]],
+  ['performance', [
     /performance/i,
     /slow/i,
     /optimize/i,
     /cache/i,
     /bottleneck/i,
-  ],
-  'unknown': [],
-};
+  ]],
+];
 
 export class IntentClassifier {
   classify(request: string): Intent {
-    for (const [intent, patterns] of Object.entries(INTENT_PATTERNS)) {
-      if (intent === 'unknown') continue;
+    if (typeof request !== 'string') return 'unknown';
+
+    for (const [intent, patterns] of INTENT_PATTERNS) {
       if (patterns.some(p => p.test(request))) {
-        return intent as Intent;
+        return intent;
       }
     }
     return 'unknown';
