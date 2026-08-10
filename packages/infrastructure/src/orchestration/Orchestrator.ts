@@ -13,6 +13,7 @@ import type { ToolRegistry } from '../tools/ToolRegistry.js';
 import type { LockManager } from './LockManager.js';
 import type { MessageBus } from './MessageBus.js';
 import { Scheduler } from './Scheduler.js';
+import { TechLeadRouter } from './TechLeadRouter.js';
 import { EventEmitter } from 'node:events';
 
 interface OrchestratorConfig {
@@ -66,6 +67,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     private readonly lockManager?: LockManager,
     private readonly messageBus?: MessageBus,
     private readonly projectResolver?: { rootPath: string },
+    private readonly techLeadRouter?: TechLeadRouter,
   ) {
     super();
   }
@@ -90,6 +92,69 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     void this.runProject(plan.projectId).catch((err) => {
       this.emit('plan:failed', { projectId: plan.projectId, reason: String(err) });
     });
+    return ok(undefined);
+  }
+
+  /**
+   * Routes a user request through the Tech Lead Router and executes
+   * the resulting plan. This is the new entry point for user requests.
+   */
+  async routeAndExecute(input: {
+    projectId: string;
+    rootPath: string;
+    request: string;
+  }): Promise<Result<void, AppError>> {
+    if (!this.techLeadRouter) {
+      return fail(AppError.internal('TechLeadRouter not configured'));
+    }
+
+    const routeResult = await this.techLeadRouter.route({
+      rootPath: input.rootPath,
+      request: input.request,
+    });
+
+    if (routeResult.isFail()) {
+      return fail(routeResult.error);
+    }
+
+    const { subtasks } = routeResult.value;
+
+    // First pass: create all tasks and build localId → UUID mapping.
+    // DagBuilder produces localId values like "0-architect", but
+    // Task.setDependencies() expects actual task UUIDs.
+    const localIdToTaskId = new Map<string, string>();
+    for (const subtask of subtasks) {
+      const task = Task.create({
+        projectId: input.projectId,
+        title: subtask.title,
+        description: subtask.description,
+        role: subtask.role,
+      });
+      await this.taskRepo.save(task);
+      localIdToTaskId.set(subtask.localId, task.id.toString());
+    }
+
+    // Second pass: update dependencies with actual task IDs.
+    for (const subtask of subtasks) {
+      if (subtask.dependencies.length > 0) {
+        const task = await this.taskRepo.findById(localIdToTaskId.get(subtask.localId) ?? '');
+        if (task) {
+          const actualDeps = subtask.dependencies
+            .map(dep => localIdToTaskId.get(dep))
+            .filter((id): id is string => id !== undefined);
+          if (actualDeps.length > 0) {
+            task.setDependencies(actualDeps);
+            await this.taskRepo.save(task);
+          }
+        }
+      }
+    }
+
+    // Start execution
+    void this.runProject(input.projectId).catch((err) => {
+      this.emit('plan:failed', { projectId: input.projectId, reason: String(err) });
+    });
+
     return ok(undefined);
   }
 
