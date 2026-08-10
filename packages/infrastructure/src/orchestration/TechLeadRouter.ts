@@ -64,14 +64,13 @@ interface LlmPlan {
 }
 
 export class TechLeadRouter {
-  private readonly intentClassifier = new IntentClassifier();
-  private readonly agentSelector = new AgentSelector();
-  private readonly dagBuilder = new DagBuilder();
-  private readonly planCache = new PlanCache();
-
   constructor(
     private readonly analyzer: ProjectAnalyzer,
     private readonly agentExecutor: AgentExecutor,
+    private readonly intentClassifier: IntentClassifier = new IntentClassifier(),
+    private readonly agentSelector: AgentSelector = new AgentSelector(),
+    private readonly dagBuilder: DagBuilder = new DagBuilder(),
+    private readonly planCache: PlanCache = new PlanCache(),
   ) {}
 
   async route(input: RouteInput): Promise<Result<PlannerResult, AppError>> {
@@ -151,25 +150,25 @@ export class TechLeadRouter {
 
     const out: PlannedSubtask[] = [];
 
-    raw.forEach((row, idx) => {
+    for (const [idx, row] of raw.entries()) {
       const title = String(row.title ?? '').trim();
       const description = String(row.description ?? '').trim();
       const role = String(row.role ?? '').trim();
       const complexity = Number(row.estimated_complexity ?? row.estimatedComplexity ?? 1);
 
-      if (!title) throw new Error(`Subtask #${idx} missing title`);
-      if (!description) throw new Error(`Subtask "${title}" missing description`);
-      if (!VALID_ROLES.has(role)) throw new Error(`Subtask "${title}" has invalid role: ${role}`);
+      if (!title) return fail(AppError.validation(`Subtask #${idx} missing title`));
+      if (!description) return fail(AppError.validation(`Subtask "${title}" missing description`));
+      if (!VALID_ROLES.has(role)) return fail(AppError.validation(`Subtask "${title}" has invalid role: ${role}`));
       if (!Number.isFinite(complexity) || complexity < 1 || complexity > 5) {
-        throw new Error(`Subtask "${title}" has invalid estimated_complexity: ${complexity}`);
+        return fail(AppError.validation(`Subtask "${title}" has invalid estimated_complexity: ${complexity}`));
       }
 
       const localId = `${idx}-${role}`;
       out.push({ localId, title, description, role, dependencies: [], estimatedComplexity: complexity });
-    });
+    }
 
     // Wire dependencies
-    raw.forEach((row, idx) => {
+    for (const [idx, row] of raw.entries()) {
       const deps = Array.isArray(row.dependencies) ? row.dependencies : [];
       const mapped: string[] = [];
       for (const dep of deps) {
@@ -180,10 +179,10 @@ export class TechLeadRouter {
       }
       const row_ = out[idx];
       if (!row_) {
-        throw new Error(`Internal: missing subtask at index ${idx}`);
+        return fail(AppError.validation(`Internal: missing subtask at index ${idx}`));
       }
       row_.dependencies = mapped;
-    });
+    }
 
     return ok(out);
   }
