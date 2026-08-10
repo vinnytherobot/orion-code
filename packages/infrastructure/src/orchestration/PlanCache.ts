@@ -4,7 +4,8 @@ export class PlanCache {
   private cache = new Map<string, PlannedSubtask[]>();
 
   get(key: string): PlannedSubtask[] | null {
-    return this.cache.get(key) ?? null;
+    const plan = this.cache.get(key);
+    return plan ? [...plan] : null;
   }
 
   set(key: string, plan: PlannedSubtask[]): void {

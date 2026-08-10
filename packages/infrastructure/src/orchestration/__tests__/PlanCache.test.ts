@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PlanCache } from '../PlanCache.js';
-import type { PlannedSubtask } from '../DagBuilder.js';
+import type { PlannedSubtask } from '../PlannerService.js';
 
 describe('PlanCache', () => {
   let cache: PlanCache;
@@ -43,5 +43,17 @@ describe('PlanCache', () => {
     cache.set('a', []);
     cache.set('b', []);
     expect(cache.size).toBe(2);
+  });
+
+  it('should return a defensive copy to prevent mutation', () => {
+    const plan: PlannedSubtask[] = [
+      { localId: '0-backend', title: 'Backend', description: '', role: 'backend', dependencies: [], estimatedComplexity: 3 },
+    ];
+    cache.set('mutate:test', plan);
+
+    const retrieved = cache.get('mutate:test');
+    retrieved!.push({ localId: '1-frontend', title: 'Frontend', description: '', role: 'frontend', dependencies: [], estimatedComplexity: 2 });
+
+    expect(cache.get('mutate:test')).toHaveLength(1);
   });
 });
