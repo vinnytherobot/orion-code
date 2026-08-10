@@ -65,6 +65,7 @@ export { ProjectAnalyzer } from './orchestration/ProjectAnalyzer.js';
 export type { ProjectSnapshot } from './orchestration/ProjectAnalyzer.js';
 export { Scheduler } from './orchestration/Scheduler.js';
 export type { SchedulableTask, Wave } from './orchestration/Scheduler.js';
+export { AgentSelector } from './orchestration/AgentSelector.js';
 export { ToolRegistry } from './tools/ToolRegistry.js';
 export type { Tool, ToolContext, ToolRunResult } from './tools/ToolRegistry.js';
 export { readFileTool } from './tools/builtin/read-file.tool.js';

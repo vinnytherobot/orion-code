@@ -8,6 +8,8 @@ describe('AgentSelector', () => {
     const agents = selector.select('add-feature');
     expect(agents).toContain('architect');
     expect(agents).toContain('backend');
+    expect(agents).toContain('database');
+    expect(agents).toContain('frontend');
     expect(agents).toContain('qa');
     expect(agents).toContain('reviewer');
   });
@@ -50,5 +52,14 @@ describe('AgentSelector', () => {
   it('should return empty array for unknown intent', () => {
     const agents = selector.select('unknown');
     expect(agents).toHaveLength(0);
+  });
+
+  it('should return a defensive copy that does not affect subsequent calls', () => {
+    const first = selector.select('add-feature');
+    first.push('hacker');
+    const second = selector.select('add-feature');
+    expect(second).not.toContain('hacker');
+    expect(second).toContain('architect');
+    expect(second).toContain('backend');
   });
 });
