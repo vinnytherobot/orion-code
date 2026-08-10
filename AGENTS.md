@@ -71,6 +71,28 @@ Tasks:
 
 ---
 
+### Tech Lead Router
+
+**Responsibility:** Intelligent task routing and plan caching.
+
+**Does not:** Write code or make architectural decisions.
+
+**Functions:**
+- Classify user intent using pattern matching
+- Select appropriate agents based on intent
+- Build dependency graphs automatically
+- Cache common plan patterns
+- Fall back to LLM for complex requests
+
+**Trigger:** Runs before the Planner for every user request.
+
+**Optimization:**
+- Eliminates LLM calls for common tasks (60-70% token savings)
+- Caches plans for repeated patterns
+- Uses rules-based selection for predictable behavior
+
+---
+
 ### Architect Agent
 
 **Responsibility:** Architecture and technical decisions.
