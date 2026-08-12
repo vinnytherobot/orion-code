@@ -259,8 +259,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
       }
     }
 
-    const allTasks = await this.taskRepo.findAll();
-    const projectTasks = allTasks.filter((t) => t.projectId === projectId);
+    const projectTasks = await this.taskRepo.findByProjectId(projectId);
 
     if (projectTasks.length === 0) {
       return fail(AppError.notFound(`No tasks for project ${projectId}`));
@@ -277,11 +276,11 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         dependencies: [...t.dependencies],
       })),
     );
-    if (!schedule.ok) {
-      return fail(AppError.internal(`Scheduling failed: ${schedule.reason}`));
+    if (schedule.isFail()) {
+      return fail(schedule.error);
     }
 
-    for (const wave of schedule.waves) {
+    for (const wave of schedule.value) {
       this.emit('wave:started', { waveIndex: wave.index, taskIds: wave.taskIds });
       const waveResult = await this.runWave(pendingTasks, wave.taskIds);
       if (waveResult.isFail()) {
@@ -605,13 +604,9 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
   }
 
   private async areDependenciesMet(task: Task): Promise<boolean> {
-    for (const depId of task.dependencies) {
-      const depTask = await this.taskRepo.findById(depId);
-      if (!depTask || !depTask.status.isTerminal()) {
-        return false;
-      }
-    }
-    return true;
+    if (task.dependencies.length === 0) return true;
+    const depTasks = await this.taskRepo.findByIds(task.dependencies);
+    return depTasks.every((dep) => dep.status.isTerminal());
   }
 
   private toAgentDTO(agent: { toJSON(): any }): AgentResponseDTO {
@@ -626,6 +621,18 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
       createdAt: props.createdAt.toISOString(),
       updatedAt: props.updatedAt.toISOString(),
     };
+  }
+
+  /**
+   * Cancels a running task by aborting its execution.
+   */
+  async cancelTask(taskId: string): Promise<Result<void, AppError>> {
+    const controller = this.runningExecutions.get(taskId);
+    if (!controller) {
+      return fail(AppError.notFound(`No running task with id ${taskId}`));
+    }
+    controller.abort();
+    return ok(undefined);
   }
 
   private toTaskDTO(task: Task): TaskResponseDTO {

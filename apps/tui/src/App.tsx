@@ -10,7 +10,7 @@ import { SelectMenu, type SelectOption } from './components/SelectMenu.js';
 import { StatusBar } from './components/StatusBar.js';
 import { WelcomeScreen } from './components/WelcomeScreen.js';
 import { useMouseScroll } from './hooks/useMouseScroll.js';
-import type { Agent, InteractiveCommand, Message, Task } from './types/index.js';
+import type { Agent, InteractiveCommand, Message } from './types/index.js';
 import { execCommand } from './utils/bash.js';
 import { executeCommand } from './utils/commands.js';
 import { apiClient } from './api/client.js';
@@ -57,7 +57,6 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
   const { stdout } = useStdout();
   const [messages, setMessages] = useState<Message[]>([]);
   const [agents] = useState<Agent[]>([]);
-  const [_tasks] = useState<Task[]>([]);
   // Resolve the active model from the backend on mount and whenever the
   // user switches providers — fixes the "not-set" header bug.
   const [model, setModel] = useState<string>(initialModel);

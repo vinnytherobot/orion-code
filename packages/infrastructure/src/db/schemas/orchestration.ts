@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, jsonb, pgEnum, index } from 'drizzle-orm/pg-core';
 import { users } from './schema.js';
 
 // Enums - matching domain types exactly
@@ -106,6 +106,17 @@ export const chatMessages = pgTable('chat_messages', {
   content: text('content').notNull(),
   createdAt: timestamp('created_at').notNull(),
 });
+
+// Indexes for performance
+export const agentsProjectIdIdx = index('agents_project_id_idx').on(agents.projectId);
+export const agentsStatusIdx = index('agents_status_idx').on(agents.status);
+export const agentsRoleIdx = index('agents_role_idx').on(agents.role);
+export const tasksProjectIdIdx = index('tasks_project_id_idx').on(tasks.projectId);
+export const tasksStatusIdx = index('tasks_status_idx').on(tasks.status);
+export const tasksAssignedAgentIdIdx = index('tasks_assigned_agent_id_idx').on(tasks.assignedAgentId);
+export const chatMessagesUserIdIdx = index('chat_messages_user_id_idx').on(chatMessages.userId);
+export const chatMessagesSessionIdIdx = index('chat_messages_session_id_idx').on(chatMessages.sessionId);
+export const chatMessagesProjectIdIdx = index('chat_messages_project_id_idx').on(chatMessages.projectId);
 
 // Type exports
 export type Project = typeof projects.$inferSelect;

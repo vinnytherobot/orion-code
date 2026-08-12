@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { getDatabase } from '../database.js';
 import { tasks } from '../schemas/orchestration.js';
 import type { ITaskRepository } from '@orion/domain';
@@ -17,6 +17,23 @@ export class TaskRepository implements ITaskRepository {
 
     if (!result[0]) return null;
     return this.toDomain(result[0]);
+  }
+
+  async findByIds(ids: readonly string[]): Promise<Task[]> {
+    if (ids.length === 0) return [];
+    const results = await this.db
+      .select()
+      .from(tasks)
+      .where(inArray(tasks.id, [...ids]));
+    return results.map(r => this.toDomain(r));
+  }
+
+  async findByProjectId(projectId: string): Promise<Task[]> {
+    const results = await this.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.projectId, projectId));
+    return results.map(r => this.toDomain(r));
   }
 
   async findByStatus(status: TaskStatusValue): Promise<Task[]> {

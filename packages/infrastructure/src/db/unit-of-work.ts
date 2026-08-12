@@ -1,11 +1,20 @@
 import type { IUnitOfWork } from '@orion/domain';
-import { getDatabase } from './database.js';
 
-type AppDb = ReturnType<typeof getDatabase>;
-
+/**
+ * DrizzleUnitOfWork - Unit of Work implementation for Drizzle ORM.
+ *
+ * NOTE: This is currently a no-op implementation. Drizzle's transaction model
+ * is callback-based (db.transaction(async (tx) => { ... })), which doesn't
+ * map well to the begin/commit/rollback pattern expected by the IUnitOfWork
+ * interface. The use cases (AuthUseCase, PlanUseCase, ImplementUseCase) use
+ * this UoW optionally, so removing it won't break functionality.
+ *
+ * TODO: Either implement proper transaction support using Drizzle's callback
+ * model, or remove the UoW pattern entirely and use Drizzle transactions
+ * directly in the use cases.
+ */
 export class DrizzleUnitOfWork implements IUnitOfWork {
   private active = false;
-  private tx: Parameters<Parameters<AppDb['transaction']>[0]>[0] | null = null;
 
   async begin(): Promise<void> {
     if (this.active) return;
@@ -24,10 +33,6 @@ export class DrizzleUnitOfWork implements IUnitOfWork {
 
   isActive(): boolean {
     return this.active;
-  }
-
-  getTransaction(): typeof this.tx {
-    return this.tx;
   }
 }
 

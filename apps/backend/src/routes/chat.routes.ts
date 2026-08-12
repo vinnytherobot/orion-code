@@ -121,13 +121,13 @@ export async function chatRoutes(fastify: FastifyInstance, deps: ChatRouteDeps) 
 
   // ── Streaming main chat endpoint (SSE) ──
 
-  fastify.get('/api/chat/stream', async (request, reply) => {
+  fastify.post('/api/chat/stream', async (request, reply) => {
     const userId = request.userId;
     if (!userId) {
       return reply.status(401).send({ error: 'Authentication required' });
     }
 
-    const { content } = request.query as { content?: string };
+    const { content } = request.body as { content?: string };
     if (!content || typeof content !== 'string' || !content.trim()) {
       return reply.status(400).send({ error: 'content is required' });
     }
@@ -328,13 +328,13 @@ export async function chatRoutes(fastify: FastifyInstance, deps: ChatRouteDeps) 
 
   // ── Streaming Tech Lead endpoint (SSE) ──
 
-  fastify.get('/api/chat/techlead/stream', async (request, reply) => {
+  fastify.post('/api/chat/techlead/stream', async (request, reply) => {
     const userId = request.userId;
     if (!userId) {
       return reply.status(401).send({ error: 'Authentication required' });
     }
 
-    const { sessionId, content } = request.query as { sessionId?: string; content?: string };
+    const { sessionId, content } = request.body as { sessionId?: string; content?: string };
 
     if (!sessionId || typeof sessionId !== 'string') {
       return reply.status(400).send({ error: 'sessionId is required' });
