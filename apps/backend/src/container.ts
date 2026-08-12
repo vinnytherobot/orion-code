@@ -96,7 +96,9 @@ function createJWTProvider(secret: string): IJWTProviderPort {
           .createHmac('sha256', secret)
           .update(`${headerB64}.${bodyB64}`)
           .digest('base64url');
-        if (signature !== expectedSignature) return null;
+        const sigBuf = Buffer.from(signature, 'base64url');
+        const expectedBuf = Buffer.from(expectedSignature, 'base64url');
+        if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
         const payload = JSON.parse(Buffer.from(bodyB64, 'base64url').toString());
         if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
         return { sub: payload.sub, type: payload.type };

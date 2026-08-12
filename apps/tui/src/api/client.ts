@@ -521,13 +521,18 @@ class ApiClient {
    * Streaming variant for the main chat. Yields content chunks via SSE.
    */
   async *sendChatStream(content: string): AsyncGenerator<string, void, undefined> {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
     if (this.accessToken) {
       headers.Authorization = `Bearer ${this.accessToken}`;
     }
 
-    const params = new URLSearchParams({ content });
-    const response = await fetch(`${this.baseUrl}/api/chat/stream?${params}`, { headers });
+    const response = await fetch(`${this.baseUrl}/api/chat/stream`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ content }),
+    });
 
     if (!response.ok) {
       const body = await response.text();
@@ -610,14 +615,17 @@ class ApiClient {
     sessionId: string,
     content: string,
   ): AsyncGenerator<string, void, undefined> {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
     if (this.accessToken) {
       headers.Authorization = `Bearer ${this.accessToken}`;
     }
 
-    const params = new URLSearchParams({ sessionId, content });
-    const response = await fetch(`${this.baseUrl}/api/chat/techlead/stream?${params}`, {
+    const response = await fetch(`${this.baseUrl}/api/chat/techlead/stream`, {
+      method: 'POST',
       headers,
+      body: JSON.stringify({ sessionId, content }),
     });
 
     if (!response.ok) {

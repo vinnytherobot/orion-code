@@ -112,7 +112,7 @@ export class ToolRegistry {
       // agent's permissions.
       const target = String(input.path ?? input.filePath ?? '');
       if (target) {
-        const okAccess = required.some(() => ctx.agent.canAccess(target));
+        const okAccess = required.some((prefix) => target.startsWith(prefix)) && ctx.agent.canAccess(target);
         if (!okAccess) {
           return fail(
             AppError.forbidden(

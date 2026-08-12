@@ -97,7 +97,16 @@ export class Agent {
   }
 
   canAccess(resourcePath: string): boolean {
-    return this.props.permissions.some((p) => resourcePath.startsWith(p));
+    const normalized = resourcePath
+      .replace(/\\/g, '/')
+      .split('/')
+      .reduce<string[]>((acc, part) => {
+        if (part === '..') acc.pop();
+        else if (part !== '.' && part !== '') acc.push(part);
+        return acc;
+      }, [])
+      .join('/');
+    return this.props.permissions.some((p) => normalized.startsWith(p.replace(/\/$/, '')));
   }
 
   toJSON(): AgentProps {
