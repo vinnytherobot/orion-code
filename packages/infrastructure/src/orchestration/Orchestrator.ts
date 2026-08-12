@@ -259,8 +259,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
       }
     }
 
-    const allTasks = await this.taskRepo.findAll();
-    const projectTasks = allTasks.filter((t) => t.projectId === projectId);
+    const projectTasks = await this.taskRepo.findByProjectId(projectId);
 
     if (projectTasks.length === 0) {
       return fail(AppError.notFound(`No tasks for project ${projectId}`));
@@ -605,13 +604,9 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
   }
 
   private async areDependenciesMet(task: Task): Promise<boolean> {
-    for (const depId of task.dependencies) {
-      const depTask = await this.taskRepo.findById(depId);
-      if (!depTask || !depTask.status.isTerminal()) {
-        return false;
-      }
-    }
-    return true;
+    if (task.dependencies.length === 0) return true;
+    const depTasks = await this.taskRepo.findByIds(task.dependencies);
+    return depTasks.every((dep) => dep.status.isTerminal());
   }
 
   private toAgentDTO(agent: { toJSON(): any }): AgentResponseDTO {
