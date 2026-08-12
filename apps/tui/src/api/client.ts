@@ -521,62 +521,7 @@ class ApiClient {
    * Streaming variant for the main chat. Yields content chunks via SSE.
    */
   async *sendChatStream(content: string): AsyncGenerator<string, void, undefined> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (this.accessToken) {
-      headers.Authorization = `Bearer ${this.accessToken}`;
-    }
-
-    const response = await fetch(`${this.baseUrl}/api/chat/stream`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ content }),
-    });
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Stream error (${response.status}): ${body}`);
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error('No response body');
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
-
-          try {
-            const data = JSON.parse(trimmed.slice(6)) as {
-              chunk?: string;
-              done?: boolean;
-              error?: string;
-            };
-            if (data.error) throw new Error(data.error);
-            if (data.done) return;
-            if (data.chunk) yield data.chunk;
-          } catch (e) {
-            if (e instanceof Error && e.message !== 'Unexpected end of JSON input') {
-              throw e;
-            }
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
+    yield* this.streamSSE('/api/chat/stream', { content });
   }
 
   async clearChat() {
@@ -615,6 +560,16 @@ class ApiClient {
     sessionId: string,
     content: string,
   ): AsyncGenerator<string, void, undefined> {
+    yield* this.streamSSE('/api/chat/techlead/stream', { sessionId, content });
+  }
+
+  /**
+   * Shared SSE streaming logic for chat endpoints.
+   */
+  private async *streamSSE(
+    path: string,
+    body: Record<string, unknown>,
+  ): AsyncGenerator<string, void, undefined> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
@@ -622,15 +577,15 @@ class ApiClient {
       headers.Authorization = `Bearer ${this.accessToken}`;
     }
 
-    const response = await fetch(`${this.baseUrl}/api/chat/techlead/stream`, {
+    const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ sessionId, content }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Stream error (${response.status}): ${body}`);
+      const responseBody = await response.text();
+      throw new Error(`Stream error (${response.status}): ${responseBody}`);
     }
 
     const reader = response.body?.getReader();
@@ -690,79 +645,19 @@ class ApiClient {
       onError?: (err: Error) => void;
     },
   ): { close: () => void } | null {
-    const url = `${this.baseUrl}/api/projects/${projectId}/orchestration/stream`;
-    const headers: Record<string, string> = {};
-    if (this.accessToken) {
-      headers.Authorization = `Bearer ${this.accessToken}`;
-    }
-
-    const controller = new AbortController();
-    let closed = false;
-
-    const parseSSE = async () => {
-      try {
-        const response = await fetch(url, {
-          headers: { ...headers, Accept: 'text/event-stream' },
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          handlers.onError?.(new Error(`SSE ${response.status}`));
-          return;
-        }
-        const reader = response.body?.getReader();
-        if (!reader) {
-          handlers.onError?.(new Error('No response body'));
-          return;
-        }
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let currentEvent = '';
-
-        while (!closed) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-
-          for (const line of lines) {
-            if (line.startsWith('event: ')) {
-              currentEvent = line.slice(7).trim();
-            } else if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (currentEvent === 'ready') {
-                handlers.onReady?.();
-              } else if (currentEvent === 'agent:output') {
-                try { handlers.onAgentOutput?.(JSON.parse(data)); } catch { /* ignore */ }
-              } else if (currentEvent === 'task:started') {
-                try { handlers.onTaskStarted?.(JSON.parse(data)); } catch { /* ignore */ }
-              } else if (currentEvent === 'task:completed') {
-                try { handlers.onTaskCompleted?.(JSON.parse(data)); } catch { /* ignore */ }
-              } else if (currentEvent === 'task:failed') {
-                try { handlers.onTaskFailed?.(JSON.parse(data)); } catch { /* ignore */ }
-              } else if (currentEvent === 'plan:completed') {
-                try { handlers.onPlanCompleted?.(JSON.parse(data)); } catch { /* ignore */ }
-              } else if (currentEvent === 'plan:failed') {
-                try { handlers.onPlanFailed?.(JSON.parse(data)); } catch { /* ignore */ }
-              }
-              currentEvent = '';
-            }
-          }
-        }
-      } catch (err) {
-        if (!closed && err instanceof Error && err.name !== 'AbortError') {
-          handlers.onError?.(err);
-        }
-      }
-    };
-
-    parseSSE();
-    return {
-      close: () => {
-        closed = true;
-        controller.abort();
+    return this.subscribeSSE(
+      `${this.baseUrl}/api/projects/${projectId}/orchestration/stream`,
+      {
+        ready: handlers.onReady,
+        'agent:output': handlers.onAgentOutput,
+        'task:started': handlers.onTaskStarted,
+        'task:completed': handlers.onTaskCompleted,
+        'task:failed': handlers.onTaskFailed,
+        'plan:completed': handlers.onPlanCompleted,
+        'plan:failed': handlers.onPlanFailed,
       },
-    };
+      handlers.onError,
+    );
   }
 
   /**
@@ -780,7 +675,27 @@ class ApiClient {
       onError?: (err: Error) => void;
     },
   ): { close: () => void } | null {
-    const url = `${this.baseUrl}/api/projects/${projectId}/orchestration/events`;
+    return this.subscribeSSE(
+      `${this.baseUrl}/api/projects/${projectId}/orchestration/events`,
+      {
+        ready: handlers.onReady,
+        task: handlers.onTask,
+        orchestrator: handlers.onOrchestrator,
+        'plan:completed': handlers.onPlanCompleted,
+        'plan:failed': handlers.onPlanFailed,
+      },
+      handlers.onError,
+    );
+  }
+
+  /**
+   * Shared SSE subscription logic using fetch + manual SSE parsing.
+   */
+  private subscribeSSE(
+    url: string,
+    eventHandlers: Record<string, ((payload: unknown) => void) | undefined>,
+    onError?: (err: Error) => void,
+  ): { close: () => void } {
     const headers: Record<string, string> = {};
     if (this.accessToken) {
       headers.Authorization = `Bearer ${this.accessToken}`;
@@ -796,12 +711,12 @@ class ApiClient {
           signal: controller.signal,
         });
         if (!response.ok) {
-          handlers.onError?.(new Error(`SSE ${response.status}`));
+          onError?.(new Error(`SSE ${response.status}`));
           return;
         }
         const reader = response.body?.getReader();
         if (!reader) {
-          handlers.onError?.(new Error('No response body'));
+          onError?.(new Error('No response body'));
           return;
         }
         const decoder = new TextDecoder();
@@ -820,16 +735,9 @@ class ApiClient {
               currentEvent = line.slice(7).trim();
             } else if (line.startsWith('data: ')) {
               const data = line.slice(6);
-              if (currentEvent === 'ready') {
-                handlers.onReady?.();
-              } else if (currentEvent === 'task') {
-                try { handlers.onTask?.(JSON.parse(data)); } catch { /* ignore */ }
-              } else if (currentEvent === 'orchestrator') {
-                try { handlers.onOrchestrator?.(JSON.parse(data)); } catch { /* ignore */ }
-              } else if (currentEvent === 'plan:completed') {
-                try { handlers.onPlanCompleted?.(JSON.parse(data)); } catch { /* ignore */ }
-              } else if (currentEvent === 'plan:failed') {
-                try { handlers.onPlanFailed?.(JSON.parse(data)); } catch { /* ignore */ }
+              const handler = eventHandlers[currentEvent];
+              if (handler) {
+                try { handler(JSON.parse(data)); } catch { /* ignore */ }
               }
               currentEvent = '';
             }
@@ -837,7 +745,7 @@ class ApiClient {
         }
       } catch (err) {
         if (!closed && err instanceof Error && err.name !== 'AbortError') {
-          handlers.onError?.(err);
+          onError?.(err);
         }
       }
     };

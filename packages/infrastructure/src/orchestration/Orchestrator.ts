@@ -276,11 +276,11 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         dependencies: [...t.dependencies],
       })),
     );
-    if (!schedule.ok) {
-      return fail(AppError.internal(`Scheduling failed: ${schedule.reason}`));
+    if (schedule.isFail()) {
+      return fail(schedule.error);
     }
 
-    for (const wave of schedule.waves) {
+    for (const wave of schedule.value) {
       this.emit('wave:started', { waveIndex: wave.index, taskIds: wave.taskIds });
       const waveResult = await this.runWave(pendingTasks, wave.taskIds);
       if (waveResult.isFail()) {

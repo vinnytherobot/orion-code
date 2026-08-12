@@ -9,6 +9,9 @@
  * reports a cycle.
  */
 
+import type { Result } from '@orion/shared';
+import { AppError, ok, fail } from '@orion/shared';
+
 export interface SchedulableTask {
   id: string;
   dependencies: readonly string[];
@@ -21,15 +24,15 @@ export interface Wave {
 
 export class Scheduler {
   /**
-   * Builds the wave list. Returns `err` if the graph has a cycle or
-   * references an unknown dependency.
+   * Builds the wave list. Returns a Result with the waves on success,
+   * or an error if the graph has a cycle or references an unknown dependency.
    */
-  build(tasks: readonly SchedulableTask[]): { ok: true; waves: Wave[] } | { ok: false; reason: string } {
+  build(tasks: readonly SchedulableTask[]): Result<Wave[], AppError> {
     const known = new Set(tasks.map((t) => t.id));
     for (const t of tasks) {
       for (const dep of t.dependencies) {
         if (!known.has(dep)) {
-          return { ok: false, reason: `Task ${t.id} references unknown dependency ${dep}` };
+          return fail(AppError.validation(`Task ${t.id} references unknown dependency ${dep}`));
         }
       }
     }
@@ -52,7 +55,7 @@ export class Scheduler {
     while (remaining.size > 0) {
       const ready = [...remaining].filter((id) => (inDegree.get(id) ?? 0) === 0).sort();
       if (ready.length === 0) {
-        return { ok: false, reason: `Cycle detected: remaining ${[...remaining].join(', ')}` };
+        return fail(AppError.internal(`Cycle detected: remaining ${[...remaining].join(', ')}`));
       }
       waves.push({ index: waveIndex, taskIds: ready });
       for (const id of ready) {
@@ -64,7 +67,7 @@ export class Scheduler {
       waveIndex++;
     }
 
-    return { ok: true, waves };
+    return ok(waves);
   }
 
   /**
