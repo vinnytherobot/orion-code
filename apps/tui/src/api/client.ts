@@ -649,7 +649,7 @@ class ApiClient {
       `${this.baseUrl}/api/projects/${projectId}/orchestration/stream`,
       {
         ready: handlers.onReady,
-        'agent:output': handlers.onAgentOutput,
+        'agent:output': handlers.onAgentOutput as ((payload: unknown) => void) | undefined,
         'task:started': handlers.onTaskStarted,
         'task:completed': handlers.onTaskCompleted,
         'task:failed': handlers.onTaskFailed,

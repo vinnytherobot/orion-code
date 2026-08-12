@@ -3,7 +3,7 @@ import type { TaskStatusValue } from '../value-objects/TaskStatus.js';
 
 export interface ITaskRepository {
   findById(id: string): Promise<Task | null>;
-  findByIds(ids: string[]): Promise<Task[]>;
+  findByIds(ids: readonly string[]): Promise<Task[]>;
   findByProjectId(projectId: string): Promise<Task[]>;
   findByStatus(status: TaskStatusValue): Promise<Task[]>;
   findByAssignedAgent(agentId: string): Promise<Task[]>;

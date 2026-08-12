@@ -37,11 +37,7 @@ export const agents = pgTable('agents', {
   config: jsonb('config').$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
-}, (table) => [
-  index('agents_project_id_idx').on(table.projectId),
-  index('agents_status_idx').on(table.status),
-  index('agents_role_idx').on(table.role),
-]);
+});
 
 // Tasks table
 export const tasks = pgTable('tasks', {
@@ -62,11 +58,7 @@ export const tasks = pgTable('tasks', {
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
-}, (table) => [
-  index('tasks_project_id_idx').on(table.projectId),
-  index('tasks_status_idx').on(table.status),
-  index('tasks_assigned_agent_id_idx').on(table.assignedAgentId),
-]);
+});
 
 // Execution logs table
 export const executionLogs = pgTable('execution_logs', {
@@ -113,11 +105,18 @@ export const chatMessages = pgTable('chat_messages', {
   role: text('role').notNull(), // 'user' | 'assistant' | 'system'
   content: text('content').notNull(),
   createdAt: timestamp('created_at').notNull(),
-}, (table) => [
-  index('chat_messages_user_id_idx').on(table.userId),
-  index('chat_messages_session_id_idx').on(table.sessionId),
-  index('chat_messages_project_id_idx').on(table.projectId),
-]);
+});
+
+// Indexes for performance
+export const agentsProjectIdIdx = index('agents_project_id_idx').on(agents.projectId);
+export const agentsStatusIdx = index('agents_status_idx').on(agents.status);
+export const agentsRoleIdx = index('agents_role_idx').on(agents.role);
+export const tasksProjectIdIdx = index('tasks_project_id_idx').on(tasks.projectId);
+export const tasksStatusIdx = index('tasks_status_idx').on(tasks.status);
+export const tasksAssignedAgentIdIdx = index('tasks_assigned_agent_id_idx').on(tasks.assignedAgentId);
+export const chatMessagesUserIdIdx = index('chat_messages_user_id_idx').on(chatMessages.userId);
+export const chatMessagesSessionIdIdx = index('chat_messages_session_id_idx').on(chatMessages.sessionId);
+export const chatMessagesProjectIdIdx = index('chat_messages_project_id_idx').on(chatMessages.projectId);
 
 // Type exports
 export type Project = typeof projects.$inferSelect;

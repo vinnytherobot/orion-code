@@ -19,12 +19,12 @@ export class TaskRepository implements ITaskRepository {
     return this.toDomain(result[0]);
   }
 
-  async findByIds(ids: string[]): Promise<Task[]> {
+  async findByIds(ids: readonly string[]): Promise<Task[]> {
     if (ids.length === 0) return [];
     const results = await this.db
       .select()
       .from(tasks)
-      .where(inArray(tasks.id, ids));
+      .where(inArray(tasks.id, [...ids]));
     return results.map(r => this.toDomain(r));
   }
 
