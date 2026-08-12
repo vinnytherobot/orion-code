@@ -269,4 +269,13 @@ export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDep
     }
     return reply.send({ success: true });
   });
+
+  fastify.post('/api/orchestration/tasks/:taskId/cancel', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string };
+    const result = await orchestrator.cancelTask(taskId);
+    if (result.isFail()) {
+      return reply.status(404).send({ success: false, error: result.error.message });
+    }
+    return reply.send({ success: true });
+  });
 }

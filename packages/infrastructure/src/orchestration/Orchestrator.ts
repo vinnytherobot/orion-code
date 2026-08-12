@@ -623,6 +623,18 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     };
   }
 
+  /**
+   * Cancels a running task by aborting its execution.
+   */
+  async cancelTask(taskId: string): Promise<Result<void, AppError>> {
+    const controller = this.runningExecutions.get(taskId);
+    if (!controller) {
+      return fail(AppError.notFound(`No running task with id ${taskId}`));
+    }
+    controller.abort();
+    return ok(undefined);
+  }
+
   private toTaskDTO(task: Task): TaskResponseDTO {
     const props = task.toJSON();
     return {
