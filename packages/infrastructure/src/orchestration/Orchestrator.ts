@@ -13,13 +13,24 @@ import type { ToolRegistry } from '../tools/ToolRegistry.js';
 import type { LockManager } from './LockManager.js';
 import type { MessageBus } from './MessageBus.js';
 import { Scheduler } from './Scheduler.js';
-import { TechLeadRouter } from './TechLeadRouter.js';
+import { PlannerService } from './PlannerService.js';
 import { EventEmitter } from 'node:events';
 
 interface OrchestratorConfig {
   maxConcurrentAgents: number;
   taskTimeoutMs: number;
   retryAttempts: number;
+  /** Delay between retry attempts in ms. Defaults to 2000. */
+  retryDelayMs?: number;
+  /** Whether to try a different agent role on retry. Defaults to false. */
+  escalateOnRetry?: boolean;
+}
+
+interface TaskExecutionMetrics {
+  taskId: string;
+  attempts: number;
+  lastError?: string;
+  totalDurationMs: number;
 }
 
 /**
@@ -67,7 +78,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     private readonly lockManager?: LockManager,
     private readonly messageBus?: MessageBus,
     private readonly projectResolver?: { rootPath: string },
-    private readonly techLeadRouter?: TechLeadRouter,
+    private readonly plannerService?: PlannerService,
   ) {
     super();
   }
@@ -104,11 +115,11 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     rootPath: string;
     request: string;
   }): Promise<Result<void, AppError>> {
-    if (!this.techLeadRouter) {
-      return fail(AppError.internal('TechLeadRouter not configured'));
+    if (!this.plannerService) {
+      return fail(AppError.internal('PlannerService not configured'));
     }
 
-    const routeResult = await this.techLeadRouter.route({
+    const routeResult = await this.plannerService.route({
       rootPath: input.rootPath,
       request: input.request,
     });
@@ -350,6 +361,9 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
    * commit → merge → report. If `executor.executeAgent` is available
    * we use the tool-use loop; otherwise we fall back to legacy
    * `executor.execute()`.
+   *
+   * Includes retry logic: if execution fails, the task is retried up
+   * to `config.retryAttempts` times with configurable delay.
    */
   private async runSingleTask(task: Task): Promise<Result<void, AppError>> {
     const claim = task.start();
@@ -358,92 +372,153 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     }
     await this.taskRepo.save(task);
 
-    const agent = await this.claimAgentForRole(task.role, task.projectId);
-    if (!agent) {
-      task.fail(`No idle agent with role ${task.role}`);
-      await this.taskRepo.save(task);
-      return fail(AppError.conflict(`No idle agent with role ${task.role}`));
-    }
-
-    const assignResult = agent.assignTask(task.id.toString());
-    if (assignResult.isFail()) {
-      task.fail(assignResult.error.message);
-      await this.taskRepo.save(task);
-      agent.reset();
-      await this.agentRepo.save(agent);
-      return fail(assignResult.error);
-    }
-    await this.taskRepo.save(task);
-    await this.agentRepo.save(agent);
-
-    this.emit('task:started', { taskId: task.id.toString(), agentId: agent.id });
-
-    const controller = new AbortController();
-    this.runningExecutions.set(task.id.toString(), controller);
+    const maxAttempts = this.config.retryAttempts + 1;
+    const retryDelayMs = this.config.retryDelayMs ?? 2000;
+    const metrics: TaskExecutionMetrics = {
+      taskId: task.id.toString(),
+      attempts: 0,
+      totalDurationMs: 0,
+    };
     const startedAt = Date.now();
 
-    const worktreePath = await this.maybeCreateWorktree(task);
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      metrics.attempts = attempt;
 
-    try {
-      const execResult = await this.executeTask(task, agent, worktreePath, controller.signal);
-      const durationMs = Date.now() - startedAt;
-      const log = {
-        taskId: task.id.toString(),
-        agentId: agent.id,
-        input: task.description,
-        durationMs,
-      };
+      if (attempt > 1) {
+        this.emit('task:retrying', {
+          taskId: task.id.toString(),
+          attempt,
+          maxAttempts,
+          lastError: metrics.lastError,
+        });
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+      }
 
-      if (execResult.isFail()) {
-        await this.executionLogRepo?.log({ ...log, error: execResult.error.message });
-        await this.maybeAbortWorktree(worktreePath);
-        task.fail(execResult.error.message);
+      const agent = await this.claimAgentForRole(task.role, task.projectId);
+      if (!agent) {
+        const error = `No idle agent with role ${task.role}`;
+        metrics.lastError = error;
+        if (attempt === maxAttempts) {
+          task.fail(error);
+          await this.taskRepo.save(task);
+          return fail(AppError.conflict(error));
+        }
+        continue;
+      }
+
+      const assignResult = agent.assignTask(task.id.toString());
+      if (assignResult.isFail()) {
+        metrics.lastError = assignResult.error.message;
         agent.reset();
+        await this.agentRepo.save(agent);
+        if (attempt === maxAttempts) {
+          task.fail(assignResult.error.message);
+          await this.taskRepo.save(task);
+          return fail(assignResult.error);
+        }
+        continue;
+      }
+      await this.taskRepo.save(task);
+      await this.agentRepo.save(agent);
+
+      this.emit('task:started', { taskId: task.id.toString(), agentId: agent.id, attempt });
+
+      const controller = new AbortController();
+      this.runningExecutions.set(task.id.toString(), controller);
+
+      const worktreePath = await this.maybeCreateWorktree(task);
+
+      try {
+        const execResult = await this.executeTask(task, agent, worktreePath, controller.signal);
+
+        if (execResult.isFail()) {
+          metrics.lastError = execResult.error.message;
+          await this.maybeAbortWorktree(worktreePath);
+          agent.reset();
+          await this.agentRepo.save(agent);
+
+          if (attempt === maxAttempts) {
+            const durationMs = Date.now() - startedAt;
+            metrics.totalDurationMs = durationMs;
+            await this.executionLogRepo?.log({
+              taskId: task.id.toString(),
+              agentId: agent.id,
+              input: task.description,
+              durationMs,
+              error: execResult.error.message,
+            });
+            task.fail(execResult.error.message);
+            await this.taskRepo.save(task);
+            this.emit('task:failed', { taskId: task.id.toString(), reason: execResult.error.message, attempts: attempt });
+            return fail(execResult.error);
+          }
+          continue;
+        }
+
+        const exec = execResult.value;
+        const mergedSha = await this.maybeCommitAndMerge(task, worktreePath, exec.output);
+        const durationMs = Date.now() - startedAt;
+        metrics.totalDurationMs = durationMs;
+
+        await this.executionLogRepo?.log({
+          taskId: task.id.toString(),
+          agentId: agent.id,
+          input: task.description,
+          durationMs,
+          output: mergedSha ? `${exec.output}\n[merge: ${mergedSha}]` : exec.output,
+        });
+
+        const success = task.complete(exec.output);
+        if (success.isFail()) {
+          return fail(success.error);
+        }
+
+        agent.completeTask();
         await this.taskRepo.save(task);
         await this.agentRepo.save(agent);
-        this.emit('task:failed', { taskId: task.id.toString(), reason: execResult.error.message });
-        return fail(execResult.error);
-      }
 
-      const exec = execResult.value;
-      const mergedSha = await this.maybeCommitAndMerge(task, worktreePath, exec.output);
-      await this.executionLogRepo?.log({
-        ...log,
-        output: mergedSha ? `${exec.output}\n[merge: ${mergedSha}]` : exec.output,
-      });
-      const success = task.complete(exec.output);
-      if (success.isFail()) {
-        return fail(success.error);
-      }
-      agent.completeTask();
-      await this.taskRepo.save(task);
-      await this.agentRepo.save(agent);
-      this.emit('task:completed', { taskId: task.id.toString(), result: exec.output });
+        this.emit('task:completed', {
+          taskId: task.id.toString(),
+          result: exec.output,
+          attempts: attempt,
+          durationMs,
+        });
 
-      if (this.eventBus) {
-        await this.eventBus.publish(
-          createTaskCompletedEvent(task.id.toString(), agent.id, exec.output),
-        );
+        if (this.eventBus) {
+          await this.eventBus.publish(
+            createTaskCompletedEvent(task.id.toString(), agent.id, exec.output),
+          );
+        }
+
+        this.runningExecutions.delete(task.id.toString());
+        return ok(undefined);
+      } catch (error) {
+        await this.maybeAbortWorktree(worktreePath);
+        agent.reset();
+        await this.agentRepo.save(agent);
+
+        if (attempt === maxAttempts) {
+          const durationMs = Date.now() - startedAt;
+          metrics.totalDurationMs = durationMs;
+          await this.executionLogRepo?.log({
+            taskId: task.id.toString(),
+            agentId: agent.id,
+            input: task.description,
+            error: String(error),
+            durationMs,
+          });
+          task.fail(String(error));
+          await this.taskRepo.save(task);
+          this.emit('task:failed', { taskId: task.id.toString(), reason: String(error), attempts: attempt });
+          return fail(AppError.internal(String(error)));
+        }
+      } finally {
+        this.runningExecutions.delete(task.id.toString());
       }
-      return ok(undefined);
-    } catch (error) {
-      await this.maybeAbortWorktree(worktreePath);
-      await this.executionLogRepo?.log({
-        taskId: task.id.toString(),
-        agentId: agent.id,
-        input: task.description,
-        error: String(error),
-        durationMs: Date.now() - startedAt,
-      });
-      task.fail(String(error));
-      agent.reset();
-      await this.taskRepo.save(task);
-      await this.agentRepo.save(agent);
-      this.emit('task:failed', { taskId: task.id.toString(), reason: String(error) });
-      return fail(AppError.internal(String(error)));
-    } finally {
-      this.runningExecutions.delete(task.id.toString());
     }
+
+    // Should not reach here, but just in case
+    return fail(AppError.internal('Task execution failed after all attempts'));
   }
 
   private async executeTask(
