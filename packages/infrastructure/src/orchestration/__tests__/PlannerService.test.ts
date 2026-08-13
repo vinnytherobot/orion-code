@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TechLeadRouter } from '../TechLeadRouter.js';
+import { PlannerService } from '../PlannerService.js';
 import type { ProjectAnalyzer } from '../ProjectAnalyzer.js';
 import type { AgentExecutor } from '../AgentExecutor.js';
 
-describe('TechLeadRouter', () => {
-  let router: TechLeadRouter;
+describe('PlannerService', () => {
+  let planner: PlannerService;
   let mockAnalyzer: ProjectAnalyzer;
   let mockExecutor: AgentExecutor;
 
@@ -18,12 +18,12 @@ describe('TechLeadRouter', () => {
       chatStructured: vi.fn(),
     } as any;
 
-    router = new TechLeadRouter(mockAnalyzer, mockExecutor);
+    planner = new PlannerService(mockAnalyzer, mockExecutor);
   });
 
   it('should route "add feature" request without LLM', async () => {
     // "Implement" matches the add-feature intent in IntentClassifier
-    const result = await router.route({ rootPath: '/test', request: 'Implement JWT authentication' });
+    const result = await planner.route({ rootPath: '/test', request: 'Implement JWT authentication' });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -34,7 +34,7 @@ describe('TechLeadRouter', () => {
   });
 
   it('should route "fix bug" request without LLM', async () => {
-    const result = await router.route({ rootPath: '/test', request: 'Fix login error' });
+    const result = await planner.route({ rootPath: '/test', request: 'Fix login error' });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -54,7 +54,7 @@ describe('TechLeadRouter', () => {
       },
     });
 
-    const result = await router.route({ rootPath: '/test', request: 'Do something custom' });
+    const result = await planner.route({ rootPath: '/test', request: 'Do something custom' });
 
     expect(result.isOk()).toBe(true);
     expect(mockExecutor.chatStructured).toHaveBeenCalled();
@@ -62,8 +62,8 @@ describe('TechLeadRouter', () => {
 
   it('should cache plans', async () => {
     // "Implement" matches add-feature → triggers non-LLM path
-    await router.route({ rootPath: '/test', request: 'Implement JWT authentication' });
-    await router.route({ rootPath: '/test', request: 'Implement JWT authentication' });
+    await planner.route({ rootPath: '/test', request: 'Implement JWT authentication' });
+    await planner.route({ rootPath: '/test', request: 'Implement JWT authentication' });
 
     // Second call should use cache, not recompute
     expect(mockExecutor.chatStructured).not.toHaveBeenCalled();
@@ -77,7 +77,7 @@ describe('TechLeadRouter', () => {
         error: { message: 'LLM unavailable', code: 'LLM_ERROR' },
       } as any);
 
-      const result = await router.route({ rootPath: '/test', request: 'Do something custom' });
+      const result = await planner.route({ rootPath: '/test', request: 'Do something custom' });
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
@@ -92,7 +92,7 @@ describe('TechLeadRouter', () => {
         value: { subtasks: [] },
       });
 
-      const result = await router.route({ rootPath: '/test', request: 'Do something custom' });
+      const result = await planner.route({ rootPath: '/test', request: 'Do something custom' });
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
@@ -111,7 +111,7 @@ describe('TechLeadRouter', () => {
         },
       });
 
-      const result = await router.route({ rootPath: '/test', request: 'Do something custom' });
+      const result = await planner.route({ rootPath: '/test', request: 'Do something custom' });
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
@@ -130,7 +130,7 @@ describe('TechLeadRouter', () => {
         },
       });
 
-      const result = await router.route({ rootPath: '/test', request: 'Do something custom' });
+      const result = await planner.route({ rootPath: '/test', request: 'Do something custom' });
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
@@ -149,7 +149,7 @@ describe('TechLeadRouter', () => {
         },
       });
 
-      const result = await router.route({ rootPath: '/test', request: 'Do something custom' });
+      const result = await planner.route({ rootPath: '/test', request: 'Do something custom' });
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
@@ -168,7 +168,7 @@ describe('TechLeadRouter', () => {
         },
       });
 
-      const result = await router.route({ rootPath: '/test', request: 'Do something custom' });
+      const result = await planner.route({ rootPath: '/test', request: 'Do something custom' });
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
@@ -187,7 +187,7 @@ describe('TechLeadRouter', () => {
         },
       });
 
-      const result = await router.route({ rootPath: '/test', request: 'Do something custom' });
+      const result = await planner.route({ rootPath: '/test', request: 'Do something custom' });
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
@@ -202,7 +202,7 @@ describe('TechLeadRouter', () => {
         value: {},
       });
 
-      const result = await router.route({ rootPath: '/test', request: 'Do something custom' });
+      const result = await planner.route({ rootPath: '/test', request: 'Do something custom' });
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
