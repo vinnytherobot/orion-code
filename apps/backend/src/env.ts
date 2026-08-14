@@ -26,3 +26,7 @@ export const env = {
   LOG_LEVEL: getEnvVar('LOG_LEVEL', false) || 'info',
   CORS_ORIGIN: getEnvVar('CORS_ORIGIN', false) || 'http://localhost:5173,http://localhost:3000',
 } as const;
+
+if (env.JWT_SECRET === 'change-me-to-a-strong-secret' || env.JWT_SECRET === '') {
+  console.warn('\n  WARNING: JWT_SECRET is insecure or empty. Generate one with: openssl rand -hex 32\n');
+}

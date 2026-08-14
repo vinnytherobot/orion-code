@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -33,6 +33,6 @@ export function saveTokens(tokens: StoredTokens): void {
 
 export function clearTokens(): void {
   if (existsSync(AUTH_FILE)) {
-    writeFileSync(AUTH_FILE, '{}');
+    unlinkSync(AUTH_FILE);
   }
 }

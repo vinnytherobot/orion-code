@@ -42,6 +42,13 @@ export class AuthUseCase {
     const emailResult = Email.create(input.email);
     if (emailResult.isFail()) return fail(emailResult.error);
 
+    if (input.password.length < 6) {
+      return fail(AppError.validation('Password must be at least 6 characters'));
+    }
+    if (input.password.length > 128) {
+      return fail(AppError.validation('Password must not exceed 128 characters'));
+    }
+
     const existing = await this.userRepository.findByEmail(emailResult.value.toString());
     if (existing) {
       return fail(AppError.conflict('Email already registered'));
@@ -88,6 +95,21 @@ export class AuthUseCase {
 
     const tokens = this.generateTokens(user.id.toString());
 
+    if (this.uow) await this.uow.begin();
+    try {
+      const refreshToken = RefreshToken.create({
+        id: this.generateId(),
+        userId: user.id.toString(),
+        token: tokens.refreshToken,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      });
+      await this.refreshTokenRepository.save(refreshToken);
+      if (this.uow) await this.uow.commit();
+    } catch {
+      if (this.uow) await this.uow.rollback();
+      return fail(AppError.internal('Login failed'));
+    }
+
     return ok({
       user: { id: user.id.toString(), name: user.name, email: user.email.toString() },
       tokens,
@@ -102,6 +124,15 @@ export class AuthUseCase {
 
     await this.refreshTokenRepository.delete(refreshTokenStr);
     const tokens = this.generateTokens(existing.userId);
+
+    const refreshToken = RefreshToken.create({
+      id: this.generateId(),
+      userId: existing.userId,
+      token: tokens.refreshToken,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+    await this.refreshTokenRepository.save(refreshToken);
+
     return ok(tokens);
   }
 
@@ -161,6 +192,8 @@ export class AuthUseCase {
   async validateApiKey(apiKey: string): Promise<Result<SafeUserDTO | null, AppError>> {
     const keyData = await this.apiKeyRepository.findByKey(apiKey);
     if (!keyData || keyData.isExpired()) return ok(null);
+
+    await this.apiKeyRepository.updateLastUsed(keyData.id);
 
     const user = await this.userRepository.findById(keyData.userId);
     if (!user) return ok(null);
