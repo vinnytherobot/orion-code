@@ -406,6 +406,10 @@ class ApiClient {
     return this.request<TaskStatsResponse>(`/api/tasks/stats/${projectId}`);
   }
 
+  async retryTask(taskId: string) {
+    return this.request(`/api/orchestration/tasks/${taskId}/retry`, { method: 'POST' });
+  }
+
   // Agent endpoints
   async listAgents() {
     return this.request<AgentListResponse>('/api/agents');
@@ -668,8 +672,11 @@ class ApiClient {
     projectId: string,
     handlers: {
       onReady?: () => void;
-      onTask?: (payload: unknown) => void;
-      onOrchestrator?: (payload: unknown) => void;
+      onTaskStarted?: (payload: unknown) => void;
+      onTaskCompleted?: (payload: unknown) => void;
+      onTaskFailed?: (payload: unknown) => void;
+      onTaskRetrying?: (payload: unknown) => void;
+      onWaveCompleted?: (payload: unknown) => void;
       onPlanCompleted?: (payload: unknown) => void;
       onPlanFailed?: (payload: unknown) => void;
       onError?: (err: Error) => void;
@@ -679,8 +686,11 @@ class ApiClient {
       `${this.baseUrl}/api/projects/${projectId}/orchestration/events`,
       {
         ready: handlers.onReady,
-        task: handlers.onTask,
-        orchestrator: handlers.onOrchestrator,
+        'task:started': handlers.onTaskStarted,
+        'task:completed': handlers.onTaskCompleted,
+        'task:failed': handlers.onTaskFailed,
+        'task:retrying': handlers.onTaskRetrying,
+        'wave:completed': handlers.onWaveCompleted,
         'plan:completed': handlers.onPlanCompleted,
         'plan:failed': handlers.onPlanFailed,
       },
@@ -690,11 +700,13 @@ class ApiClient {
 
   /**
    * Shared SSE subscription logic using fetch + manual SSE parsing.
+   * Includes auto-reconnect on connection loss.
    */
   private subscribeSSE(
     url: string,
     eventHandlers: Record<string, ((payload: unknown) => void) | undefined>,
     onError?: (err: Error) => void,
+    maxReconnectAttempts = 5,
   ): { close: () => void } {
     const headers: Record<string, string> = {};
     if (this.accessToken) {
@@ -703,6 +715,7 @@ class ApiClient {
 
     const controller = new AbortController();
     let closed = false;
+    let reconnectAttempts = 0;
 
     const parseSSE = async () => {
       try {
@@ -714,6 +727,7 @@ class ApiClient {
           onError?.(new Error(`SSE ${response.status}`));
           return;
         }
+        reconnectAttempts = 0; // Reset on successful connection
         const reader = response.body?.getReader();
         if (!reader) {
           onError?.(new Error('No response body'));
@@ -737,7 +751,11 @@ class ApiClient {
               const data = line.slice(6);
               const handler = eventHandlers[currentEvent];
               if (handler) {
-                try { handler(JSON.parse(data)); } catch { /* ignore */ }
+                try {
+                  handler(JSON.parse(data));
+                } catch (e) {
+                  console.error(`[SSE] Failed to parse event "${currentEvent}":`, e);
+                }
               }
               currentEvent = '';
             }
@@ -746,6 +764,14 @@ class ApiClient {
       } catch (err) {
         if (!closed && err instanceof Error && err.name !== 'AbortError') {
           onError?.(err);
+          // Auto-reconnect with exponential backoff
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            const delay = Math.min(1000 * 2 ** reconnectAttempts, 30_000);
+            setTimeout(() => {
+              if (!closed) parseSSE();
+            }, delay);
+          }
         }
       }
     };

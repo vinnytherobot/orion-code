@@ -169,6 +169,9 @@ export const COMMANDS: Command[] = [
     filtered.forEach((t) => {
       const icon = t.status === 'completed' ? '[OK]' : t.status === 'running' ? '[..]' : t.status === 'failed' ? '[!!]' : '[-]';
       output += `\n  ${icon} [${t.id.slice(0, 8)}] ${t.title} (${t.status})`;
+      if (t.status === 'failed' && t.result) {
+        output += `\n       ↳ ${t.result.slice(0, 100)}`;
+      }
     });
     return output;
   }},
@@ -626,6 +629,37 @@ export const COMMANDS: Command[] = [
     };
   }},
   { name: 'git', description: 'Git operations', usage: '/git status|commit|push|pull|log', aliases: ['g'], handler: async (args: string[]): Promise<string> => { return `\nGit ${args[0] || 'status'}: (not implemented yet)`; }},
+  { name: 'retry', description: 'Retry a failed task', usage: '/retry <taskId>', handler: async (args: string[]): Promise<string | InteractiveCommand> => {
+    if (!apiClient.isAuthenticated()) return '\nNot authenticated. Use /login or /register first.';
+    const taskId = args[0];
+    if (!taskId) {
+      // List failed tasks for selection
+      const result = await apiClient.listTasks();
+      const expired = handleSessionExpired(result);
+      if (expired) return expired;
+      if (result.error) return `\nError: ${result.error}`;
+      const failedTasks = (result.data?.tasks || []).filter((t) => t.status === 'failed');
+      if (failedTasks.length === 0) return '\nNo failed tasks to retry.';
+      const options: SelectOption[] = failedTasks.map((t) => ({
+        label: t.title,
+        value: t.id,
+        description: t.id.slice(0, 8),
+      }));
+      return {
+        type: 'select',
+        title: 'Select failed task to retry:',
+        options,
+        callback: async (id: string) => {
+          const r = await apiClient.retryTask(id);
+          if (r.error) return `\nError: ${r.error}`;
+          return `\nTask retried successfully. Use /tasks to monitor.`;
+        }
+      };
+    }
+    const result = await apiClient.retryTask(taskId);
+    if (result.error) return `\nError: ${result.error}`;
+    return `\nTask retried successfully. Use /tasks to monitor.`;
+  }},
   { name: 'logs', description: 'Show agent logs', handler: async (): Promise<string> => '\nAgent Logs: (not implemented yet)' },
   { name: 'plugin', description: 'Manage plugins', handler: async (args: string[]): Promise<string> => `\nPlugin ${args[0] || 'list'}: (not implemented yet)` },
   { name: 'theme', description: 'Switch between themes', usage: '/theme', handler: async (args: string[]): Promise<string | InteractiveCommand> => {

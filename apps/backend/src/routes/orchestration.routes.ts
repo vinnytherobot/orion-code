@@ -36,13 +36,8 @@ export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDep
       reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 
-    const handler = (payload: unknown): void => {
-      const event = payload as { taskId?: string; agentId?: string };
-      if (event && typeof event === 'object' && 'taskId' in event) {
-        send('task', payload);
-      } else {
-        send('orchestrator', payload);
-      }
+    const handler = (eventName: string) => (payload: unknown): void => {
+      send(eventName, payload);
     };
     const onPlanComplete = (payload: unknown): void => {
       const p = payload as { projectId?: string };
@@ -61,8 +56,15 @@ export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDep
       }
     };
 
-    const events = ['task:started', 'task:completed', 'task:failed', 'wave:completed'];
-    for (const e of events) orchestrator.on(e, handler);
+    // Register individual event handlers to preserve event type
+    const eventHandlers = [
+      { event: 'task:started', handler: handler('task:started') },
+      { event: 'task:completed', handler: handler('task:completed') },
+      { event: 'task:failed', handler: handler('task:failed') },
+      { event: 'task:retrying', handler: handler('task:retrying') },
+      { event: 'wave:completed', handler: handler('wave:completed') },
+    ];
+    for (const { event, handler: h } of eventHandlers) orchestrator.on(event, h);
     orchestrator.on('plan:completed', onPlanComplete);
     orchestrator.on('plan:failed', onPlanFailed);
 
@@ -72,7 +74,7 @@ export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDep
 
     const cleanup = (): void => {
       clearInterval(heartbeat);
-      for (const e of events) orchestrator.off(e, handler);
+      for (const { event, handler: h } of eventHandlers) orchestrator.off(event, h);
       orchestrator.off('plan:completed', onPlanComplete);
       orchestrator.off('plan:failed', onPlanFailed);
     };
@@ -104,6 +106,8 @@ export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDep
     const onAgentOutput = (payload: unknown): void => {
       const p = payload as { taskId?: string };
       // Only forward events for tasks in this project.
+      // Note: We can't filter by projectId here since agent:output
+      // doesn't include it. The filtering happens client-side.
       if (p?.taskId) send('agent:output', payload);
     };
     const onTaskStarted = (payload: unknown): void => send('task:started', payload);
@@ -276,6 +280,24 @@ export async function orchestrationRoutes(fastify: FastifyInstance, deps: AppDep
     if (result.isFail()) {
       return reply.status(404).send({ success: false, error: result.error.message });
     }
+    return reply.send({ success: true });
+  });
+
+  fastify.post('/api/orchestration/tasks/:taskId/retry', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string };
+    const task = await taskRepo.findById(taskId);
+    if (!task) {
+      return reply.status(404).send({ success: false, error: 'Task not found' });
+    }
+    if (task.status.value !== 'failed') {
+      return reply.status(400).send({ success: false, error: 'Only failed tasks can be retried' });
+    }
+    // Reset task to pending and re-run the project
+    task.reset();
+    await taskRepo.save(task);
+    void orchestrator.runProject(task.projectId).catch((err) => {
+      console.error(`[Orchestrator] Retry failed for task ${taskId}:`, err);
+    });
     return reply.send({ success: true });
   });
 }
