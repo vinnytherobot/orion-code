@@ -1,5 +1,5 @@
 import type { Result } from '@orion/shared';
-import { AppError, fail, ok } from '@orion/shared';
+import { AppError, ok } from '@orion/shared';
 import type { ILLMProvider, LLMMessage } from '../providers/BaseProvider.js';
 
 export type Intent =
