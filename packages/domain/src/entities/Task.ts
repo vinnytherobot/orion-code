@@ -151,6 +151,17 @@ export class Task {
     return ok(undefined);
   }
 
+  reset(): Result<void, AppError> {
+    const next = TaskStatus.pending();
+    if (!this.props.status.canTransitionTo(next)) {
+      return fail(AppError.conflict(`Cannot reset task from status ${this.props.status}`));
+    }
+    this.props.status = next;
+    this.props.result = null;
+    this.props.updatedAt = new Date();
+    return ok(undefined);
+  }
+
   toJSON(): TaskProps {
     return { ...this.props };
   }
