@@ -6,7 +6,7 @@ import type { Agent } from '@orion/domain';
 import type { ILLMProvider, LLMMessage } from '../providers/BaseProvider.js';
 import type { ToolRegistry, ToolContext } from '../tools/ToolRegistry.js';
 import type { LockManager } from './LockManager.js';
-import { loadPromptWithContext, type ProjectContext } from './prompts/index.js';
+import { loadPrompt, loadPromptWithContext, type ProjectContext } from './prompts/index.js';
 
 export interface ChatStructuredRequest<T> {
   systemPrompt: string;
@@ -121,9 +121,14 @@ export class AgentExecutor implements IAgentExecutorPort {
    * execution output. Records every tool call in the result.
    */
   async executeAgent(input: ExecuteAgentInput): Promise<Result<AgentExecutionResult, AppError>> {
-    const isAvailable = await this.llmProvider.isAvailable();
+    // Check LLM availability with retry for transient failures
+    let isAvailable = await this.llmProvider.isAvailable();
     if (!isAvailable) {
-      return fail(AppError.internal(`${this.llmProvider.name} is not available`));
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      isAvailable = await this.llmProvider.isAvailable();
+      if (!isAvailable) {
+        return fail(AppError.internal(`${this.llmProvider.name} is not available`));
+      }
     }
 
     const systemPrompt = loadPromptWithContext(input.agent.role, input.projectContext);
@@ -146,18 +151,28 @@ export class AgentExecutor implements IAgentExecutorPort {
     ];
 
     const toolCalls: Array<{ name: string; input: Record<string, unknown>; output: string }> = [];
+    let nudgeCount = 0;
+    const maxNudges = 3;
+    let consecutiveToolErrors = 0;
+    const maxConsecutiveToolErrors = 3;
 
     for (let turn = 0; turn < maxTurns; turn++) {
       if (input.signal?.aborted) {
         return fail(AppError.internal('Agent execution aborted'));
       }
 
-      // Retry loop for rate-limited LLM calls with exponential backoff.
+      // Retry loop for rate-limited or transient LLM errors with exponential backoff.
       let response = await this.llmProvider.chat(messages, { temperature: 0 });
       for (let retry = 0; response.isFail() && retry < 3; retry++) {
         const errMsg = response.error.message;
-        const isRateLimit = errMsg.includes('429') || errMsg.toLowerCase().includes('rate limit');
-        if (!isRateLimit) break;
+        const isRetryable = errMsg.includes('429') ||
+          errMsg.toLowerCase().includes('rate limit') ||
+          errMsg.toLowerCase().includes('timeout') ||
+          errMsg.toLowerCase().includes('econnreset') ||
+          errMsg.toLowerCase().includes('500') ||
+          errMsg.toLowerCase().includes('502') ||
+          errMsg.toLowerCase().includes('503');
+        if (!isRetryable) break;
         const delayMs = Math.min(2000 * 2 ** retry, 15_000);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         response = await this.llmProvider.chat(messages, { temperature: 0 });
@@ -184,6 +199,10 @@ export class AgentExecutor implements IAgentExecutorPort {
         // means the LLM is describing what it WOULD do instead of
         // actually doing it. Force it to use tools.
         if (toolCalls.length === 0) {
+          nudgeCount++;
+          if (nudgeCount > maxNudges) {
+            return fail(AppError.internal('Agent exceeded maximum corrective nudges'));
+          }
           messages.push({ role: 'assistant', content });
           messages.push({
             role: 'user',
@@ -229,6 +248,16 @@ export class AgentExecutor implements IAgentExecutorPort {
         ? JSON.stringify(toolRun.value)
         : `ERROR: ${toolRun.error.message}`;
       toolCalls.push({ name: action.name, input: action.input, output: toolOutput });
+
+      // Track consecutive tool errors
+      if (toolRun.isFail()) {
+        consecutiveToolErrors++;
+        if (consecutiveToolErrors >= maxConsecutiveToolErrors) {
+          return fail(AppError.internal(`Agent exceeded ${maxConsecutiveToolErrors} consecutive tool errors`));
+        }
+      } else {
+        consecutiveToolErrors = 0;
+      }
 
       // Stream tool result to subscribers.
       input.onOutput?.({

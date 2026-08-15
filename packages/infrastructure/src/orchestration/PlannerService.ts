@@ -5,6 +5,7 @@ import { IntentClassifier, type Intent } from './IntentClassifier.js';
 import { AgentSelector } from './AgentSelector.js';
 import { DagBuilder } from './DagBuilder.js';
 import { PlanCache } from './PlanCache.js';
+import { ComplexityAssessor } from './ComplexityAssessor.js';
 
 export interface PlannedSubtask {
   /** Stable id within the plan (used to wire dependencies). */
@@ -85,20 +86,31 @@ const PLANNER_SYSTEM_PROMPT = [
   '   AFTER the implementation subtasks.',
   '7. Always end with a reviewer subtask whose dependencies include',
   '   every implementation subtask.',
-  '8. Output STRICT JSON. No prose, no markdown fences around it.',
+  '8. If the request is trivial (creating a single file, writing a comment,',
+  '   renaming something), produce exactly 1 subtask with no dependencies.',
+  '   Do NOT add architect/reviewer for trivial tasks.',
+  '9. Output STRICT JSON. No prose, no markdown fences around it.',
 ].join('\n');
+
+// Intent-to-default-role mapping
+const INTENT_DEFAULT_ROLE: Record<Intent, string> = {
+  'add-feature': 'backend',
+  'fix-bug': 'backend',
+  'refactor': 'backend',
+  'add-infrastructure': 'devops',
+  'add-testing': 'qa',
+  'security-audit': 'security',
+  'performance': 'performance',
+  'unknown': 'backend',
+};
 
 /**
  * Decomposes a high-level request into a dependency-ordered task plan.
  *
- * Uses a two-tier strategy:
- *   1. Fast path: Rule-based intent classification + agent selection + DAG builder.
- *      This avoids LLM calls for common patterns (60-70% token savings).
- *   2. Slow path: LLM fallback for complex or ambiguous requests.
- *
- * The result is a `PlannerResult` (NOT persisted yet — the orchestrator
- * is responsible for turning `subtasks` into `Task` rows with proper
- * dependency wiring).
+ * Uses a three-tier strategy:
+ *   1. Trivial: Single-agent path, no decomposition needed.
+ *   2. Moderate: selectDynamic with complexity filtering, 2-3 focused agents.
+ *   3. Complex: Full multi-agent pipeline (or LLM fallback for unknown intents).
  */
 export class PlannerService {
   constructor(
@@ -108,6 +120,7 @@ export class PlannerService {
     private readonly agentSelector: AgentSelector = new AgentSelector(),
     private readonly dagBuilder: DagBuilder = new DagBuilder(),
     private readonly planCache: PlanCache = new PlanCache(),
+    private readonly complexityAssessor: ComplexityAssessor = new ComplexityAssessor(),
   ) {}
 
   /**
@@ -118,14 +131,16 @@ export class PlannerService {
   }
 
   /**
-   * Routes a user request through the planner. Alias for `plan()` with
-   * a more descriptive name for external callers.
+   * Routes a user request through the three-tier planner.
    */
   async route(input: RouteInput): Promise<Result<PlannerResult, AppError>> {
     const snapshot = this.analyzer.analyze(input.rootPath);
 
     // 1. Classify intent (async with LLM fallback)
     const classification = await this.intentClassifier.classifyAsync(input.request);
+    if (classification.isFail()) {
+      return fail(classification.error);
+    }
     const intent = classification.value.intent;
 
     // 2. Check cache
@@ -135,18 +150,64 @@ export class PlannerService {
       return ok({ projectSnapshot: snapshot, subtasks: cached });
     }
 
-    // 3. Select agents via rule-based matching
-    const agents = this.agentSelector.select(intent);
+    // 3. Assess complexity
+    const assessment = this.complexityAssessor.assess({ request: input.request, intent });
 
-    // 4. If agents matched, use fast path (no LLM)
-    if (agents.length > 0) {
-      const subtasks = this.dagBuilder.build(agents);
+    // 4a. TRIVIAL: single-task plan, no multi-agent decomposition
+    if (assessment.tier === 'trivial') {
+      const role = assessment.suggestedRoles[0] ?? INTENT_DEFAULT_ROLE[intent] ?? 'backend';
+      const title = this.generateTrivialTitle(input.request);
+      const subtasks = this.dagBuilder.buildSingleTask({
+        title,
+        description: input.request,
+        role,
+      });
       this.planCache.set(cacheKey, subtasks);
       return ok({ projectSnapshot: snapshot, subtasks });
     }
 
-    // 5. LLM fallback for complex/unknown requests
+    // 4b. MODERATE: use selectDynamic with complexity filtering
+    if (assessment.tier === 'moderate') {
+      const ranked = this.agentSelector.selectDynamic({
+        intent,
+        taskComplexity: assessment.score,
+        request: input.request,
+      });
+      const agents = ranked.map(r => r.role);
+
+      if (agents.length > 0) {
+        const subtasks = this.dagBuilder.buildWithContext(agents, {
+          request: input.request,
+          intent,
+          complexity: assessment.score,
+        });
+        this.planCache.set(cacheKey, subtasks);
+        return ok({ projectSnapshot: snapshot, subtasks });
+      }
+    }
+
+    // 4c. COMPLEX: use existing logic (may include LLM fallback)
+    const agents = this.agentSelector.select(intent);
+    if (agents.length > 0) {
+      const subtasks = this.dagBuilder.buildWithContext(agents, {
+        request: input.request,
+        intent,
+        complexity: assessment.score,
+      });
+      this.planCache.set(cacheKey, subtasks);
+      return ok({ projectSnapshot: snapshot, subtasks });
+    }
+
+    // 5. LLM fallback for unknown/ambiguous requests
     return this.llmFallback(input, snapshot);
+  }
+
+  private generateTrivialTitle(request: string): string {
+    return request
+      .replace(/\b(a|an|the|called|named|in|at|for|to)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^./, c => c.toUpperCase());
   }
 
   private async llmFallback(

@@ -55,6 +55,13 @@ export class ApiKeyDomainRepository implements IApiKeyRepository {
       });
   }
 
+  async updateLastUsed(id: string): Promise<void> {
+    await this.db
+      .update(schema.apiKeys)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(schema.apiKeys.id, id));
+  }
+
   async delete(id: string): Promise<boolean> {
     const result = await this.db
       .delete(schema.apiKeys)

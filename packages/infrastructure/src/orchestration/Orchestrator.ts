@@ -101,6 +101,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     // Kick off the async loop but don't await it — the HTTP response
     // returns immediately and the TUI follows via SSE.
     void this.runProject(plan.projectId).catch((err) => {
+      console.error(`[Orchestrator] Plan failed for project ${plan.projectId}:`, err);
       this.emit('plan:failed', { projectId: plan.projectId, reason: String(err) });
     });
     return ok(undefined);
@@ -163,6 +164,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
 
     // Start execution
     void this.runProject(input.projectId).catch((err) => {
+      console.error(`[Orchestrator] Plan failed for project ${input.projectId}:`, err);
       this.emit('plan:failed', { projectId: input.projectId, reason: String(err) });
     });
 
@@ -331,13 +333,11 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
     }
 
     // Wait for the first batch, then continue with remaining tasks
-    // as slots free up.
+    // as slots free up. Wait for ALL tasks before reporting failure.
     const firstBatch = await Promise.all(workers);
-    for (const failResult of firstBatch) {
-      if (failResult.isFail()) return fail(failResult.error);
-    }
+    const firstFailures = firstBatch.filter(r => r.isFail());
 
-    // Process remaining tasks in parallel batches.
+    // Process remaining tasks even if some failed.
     while (queue.length > 0) {
       const batch: Promise<Result<void, AppError>>[] = [];
       while (queue.length > 0 && batch.length < this.config.maxConcurrentAgents) {
@@ -348,8 +348,13 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         batch.push(this.runSingleTask(task));
       }
       const results = await Promise.all(batch);
-      for (const failResult of results) {
-        if (failResult.isFail()) return fail(failResult.error);
+      firstFailures.push(...results.filter(r => r.isFail()));
+    }
+
+    if (firstFailures.length > 0) {
+      const firstError = firstFailures[0];
+      if (firstError) {
+        return fail(firstError.error);
       }
     }
 
@@ -426,14 +431,16 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
       const controller = new AbortController();
       this.runningExecutions.set(task.id.toString(), controller);
 
-      const worktreePath = await this.maybeCreateWorktree(task);
+      const worktreeInfo = await this.maybeCreateWorktree(task);
 
       try {
-        const execResult = await this.executeTask(task, agent, worktreePath, controller.signal);
+        const execResult = await this.executeTask(task, agent, worktreeInfo?.path ?? null, controller.signal);
 
         if (execResult.isFail()) {
           metrics.lastError = execResult.error.message;
-          await this.maybeAbortWorktree(worktreePath);
+          if (worktreeInfo?.isWorktree) {
+            await this.maybeAbortWorktree(worktreeInfo.path);
+          }
           agent.reset();
           await this.agentRepo.save(agent);
 
@@ -456,7 +463,10 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         }
 
         const exec = execResult.value;
-        const mergedSha = await this.maybeCommitAndMerge(task, worktreePath, exec.output);
+        // Only commit/merge if we have a real worktree
+        const mergedSha = worktreeInfo?.isWorktree
+          ? await this.maybeCommitAndMerge(task, worktreeInfo.path, exec.output)
+          : null;
         const durationMs = Date.now() - startedAt;
         metrics.totalDurationMs = durationMs;
 
@@ -493,7 +503,9 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         this.runningExecutions.delete(task.id.toString());
         return ok(undefined);
       } catch (error) {
-        await this.maybeAbortWorktree(worktreePath);
+        if (worktreeInfo?.isWorktree) {
+          await this.maybeAbortWorktree(worktreeInfo.path);
+        }
         agent.reset();
         await this.agentRepo.save(agent);
 
@@ -566,22 +578,29 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
       : await this.agentRepo.findAll();
     const idle = agents.filter((a) => a.status.isIdle());
     const sameRole = idle.find((a) => a.role === role);
-    return sameRole ?? idle[0] ?? null;
+    const agent = sameRole ?? idle[0] ?? null;
+    if (!agent) return null;
+
+    // Atomic claim: re-fetch and verify agent is still idle before assigning
+    const freshAgent = await this.agentRepo.findById(agent.id.toString());
+    if (!freshAgent || !freshAgent.status.isIdle()) return null;
+    return freshAgent;
   }
 
-  private async maybeCreateWorktree(task: Task): Promise<string | null> {
+  private async maybeCreateWorktree(task: Task): Promise<{ path: string; isWorktree: boolean } | null> {
     if (!this.worktreeManager || !this.projectResolver) return null;
     try {
-      return await this.worktreeManager.createWorktree({
+      const path = await this.worktreeManager.createWorktree({
         projectPath: this.projectResolver.rootPath,
         taskId: task.id.toString(),
         branchName: `orion/${task.id.toString()}`,
       });
+      return { path, isWorktree: true };
     } catch (err) {
       // Worktree creation failed (e.g. uncommitted changes, not a git
       // repo inside Docker). Fall back to writing directly in the
-      // project root. The tool-use loop still runs — tools just write
-      // to the project path instead of an isolated worktree.
+      // project root. Track that this is NOT a real worktree so
+      // commit/merge is skipped.
       const reason = err instanceof Error ? err.message : String(err);
       await this.messageBus?.send({
         from: 'orchestrator',
@@ -589,7 +608,7 @@ export class Orchestrator extends EventEmitter implements IOrchestratorPort {
         type: 'notification',
         payload: { type: 'worktree:failed', taskId: task.id.toString(), reason },
       });
-      return this.projectResolver.rootPath;
+      return { path: this.projectResolver.rootPath, isWorktree: false };
     }
   }
 

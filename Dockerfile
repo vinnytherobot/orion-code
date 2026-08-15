@@ -52,6 +52,9 @@ COPY --from=builder /app/packages/application/dist ./packages/application/dist
 COPY --from=builder /app/packages/infrastructure/dist ./packages/infrastructure/dist
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 
+# Copy prompt files to dist folder (not compiled by TypeScript)
+COPY --from=builder /app/packages/infrastructure/src/orchestration/prompts/ ./packages/infrastructure/dist/orchestration/prompts/
+
 EXPOSE 3000
 
 ENV NODE_ENV=production

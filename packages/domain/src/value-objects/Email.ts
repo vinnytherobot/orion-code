@@ -7,7 +7,7 @@ export class Email {
     const trimmed = value.trim().toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmed)) {
-      return fail(AppError.conflict('Invalid email format'));
+      return fail(AppError.validation('Invalid email format'));
     }
     return ok(new Email(trimmed));
   }

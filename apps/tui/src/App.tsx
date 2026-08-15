@@ -233,21 +233,21 @@ export function App({ model: initialModel = 'not-set', agentCount = 0 }: AppProp
     const orchProjectId = result.slice('__ORCHESTRATE__:'.length);
     addMessage('system', 'Orchestration started! Monitoring progress...');
     const sub = apiClient.subscribeOrchestration(orchProjectId, {
-      onTask: (payload) => {
-        const p = payload as { taskId?: string; agentId?: string; result?: string; reason?: string };
-        if (p.result) {
-          addMessage('system', `Task ${p.taskId?.slice(0, 8)} completed: ${p.result.slice(0, 120)}`);
-        } else if (p.reason) {
-          addMessage('system', `Task ${p.taskId?.slice(0, 8)} failed: ${p.reason}`);
-        } else if (p.agentId) {
-          addMessage('system', `Task ${p.taskId?.slice(0, 8)} started by agent ${p.agentId?.slice(0, 8)}`);
-        }
+      onTaskStarted: (payload) => {
+        const p = payload as { taskId?: string; agentId?: string };
+        addMessage('system', `Task ${p.taskId?.slice(0, 8)} started by agent ${p.agentId?.slice(0, 8)}`);
       },
-      onOrchestrator: (payload) => {
-        const p = payload as { type?: string; waveIndex?: number; taskIds?: string[] };
-        if (p.type === 'wave:completed' || p.waveIndex !== undefined) {
-          addMessage('system', `Wave ${p.waveIndex ?? '?'} completed (${p.taskIds?.length ?? 0} tasks)`);
-        }
+      onTaskCompleted: (payload) => {
+        const p = payload as { taskId?: string; result?: string };
+        addMessage('system', `Task ${p.taskId?.slice(0, 8)} completed: ${(p.result ?? '').slice(0, 120)}`);
+      },
+      onTaskFailed: (payload) => {
+        const p = payload as { taskId?: string; reason?: string };
+        addMessage('system', `Task ${p.taskId?.slice(0, 8)} failed: ${p.reason ?? 'unknown error'}`);
+      },
+      onWaveCompleted: (payload) => {
+        const p = payload as { waveIndex?: number; taskIds?: string[] };
+        addMessage('system', `Wave ${p.waveIndex ?? '?'} completed (${p.taskIds?.length ?? 0} tasks)`);
       },
       onPlanCompleted: () => {
         addMessage('system', 'All tasks completed! Use /tasks to see results.');

@@ -1,9 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppDeps } from '../container.js';
-import { createProvider, getProviderInfo } from '@orion/infrastructure';
 
 export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
-  const { authUseCase, userRepository, agentExecutor } = deps;
+  const { authUseCase } = deps;
 
   app.post(
     '/api/auth/register',
@@ -39,49 +38,39 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
         return reply.status(401).send({ error: result.error.message });
       }
 
-      // Sync the global executor with the user's saved provider
-      try {
-        const userConfig = await userRepository.getProviderConfig(result.value.user.id);
-        if (userConfig) {
-          const info = getProviderInfo(userConfig.name);
-          if (info) {
-            const provider = createProvider(userConfig.name, {
-              apiKey: userConfig.apiKey || 'ollama',
-              baseUrl: info.defaultBaseUrl,
-              model: userConfig.model || info.defaultModel,
-            });
-            agentExecutor.setProvider(provider);
-          }
-        }
-      } catch {
-        // Non-fatal: login still succeeds even if provider sync fails
-      }
-
       return reply.send({ user: result.value.user, tokens: result.value.tokens });
     },
   );
 
-  app.post('/api/auth/refresh', async (request, reply) => {
-    const { refreshToken } = request.body as { refreshToken: string };
-    if (!refreshToken) {
-      return reply.status(400).send({ error: 'Refresh token required' });
-    }
+  app.post(
+    '/api/auth/refresh',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const { refreshToken } = request.body as { refreshToken: string };
+      if (!refreshToken) {
+        return reply.status(400).send({ error: 'Refresh token required' });
+      }
 
-    const result = await authUseCase.refreshTokens(refreshToken);
-    if (result.isFail()) {
-      return reply.status(401).send({ error: result.error.message });
-    }
+      const result = await authUseCase.refreshTokens(refreshToken);
+      if (result.isFail()) {
+        return reply.status(401).send({ error: result.error.message });
+      }
 
-    return reply.send(result.value);
-  });
+      return reply.send(result.value);
+    },
+  );
 
-  app.post('/api/auth/logout', async (request, reply) => {
-    const { refreshToken } = request.body as { refreshToken: string };
-    if (refreshToken) {
-      await authUseCase.logout(refreshToken);
-    }
-    return reply.send({ success: true });
-  });
+  app.post(
+    '/api/auth/logout',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const { refreshToken } = request.body as { refreshToken: string };
+      if (refreshToken) {
+        await authUseCase.logout(refreshToken);
+      }
+      return reply.send({ success: true });
+    },
+  );
 
   app.get('/api/auth/me', async (request, reply) => {
     if (!request.userId) {
